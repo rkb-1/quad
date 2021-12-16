@@ -86,6 +86,9 @@ struct QuadrupedCommand {
     kWalk = 9,
 
     kBackflip = 10,
+    
+    // For trajectory replay, same as kJoint mode. Here, the aim is send all joint commands.
+    kJointTraj = 11,
 
     kNumModes,
   };
@@ -120,6 +123,7 @@ struct QuadrupedCommand {
   };
 
   // Only valid for kJoint mode.
+  // Should be valid for kJointTraj replay
   std::vector<Joint> joints;
 
   struct Leg {
@@ -281,6 +285,7 @@ struct IsEnum<mjmech::mech::QuadrupedCommand::Mode> {
         { M::kJump, "jump" },
         { M::kWalk, "walk" },
         { M::kBackflip, "backflip" },
+        { M::kJointTraj, "traj_replay" },
       }};
   }
 };

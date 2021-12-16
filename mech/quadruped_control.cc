@@ -45,6 +45,8 @@
 #include "mech/swing_trajectory.h"
 #include "mech/trajectory.h"
 
+#include "csv.h"
+
 namespace pl = std::placeholders;
 
 namespace mjmech {
@@ -143,8 +145,8 @@ struct CommandLog {
 
   static QC ignored_command;
 };
-
 QC CommandLog::ignored_command;
+
 }
 
 class QuadrupedControl::Impl {
@@ -160,6 +162,8 @@ class QuadrupedControl::Impl {
     context.telemetry_registry->Register("qc_control", &control_signal_);
     context.telemetry_registry->Register("imu", &imu_signal_);
     context.telemetry_registry->Register("servo_config", &servo_config_signal_);
+
+    
   }
 
   void AsyncStart(mjlib::io::ErrorCallback callback) {
@@ -179,8 +183,7 @@ class QuadrupedControl::Impl {
       mjlib::base::Json5ReadArchive(inf).Accept(&config_);
     }
 
-    if (config_.legs.size() != 4 ||
-        config_.joints.size() != kNumServos) {
+    if (config_.legs.size() != 4 || config_.joints.size() != kNumServos) {
       mjlib::base::Fail(
           fmt::format(
               "Incorrect number of legs/joints configured: {}/{} != 4/12",
@@ -190,6 +193,11 @@ class QuadrupedControl::Impl {
     context_.emplace(config_, &current_command_, &status_.state);
 
     PopulateStatusRequest();
+
+
+    //Read the trajectory from csv file
+    read_Trajectory();
+
 
     period_s_ = config_.period_s;
     timer_.start(mjlib::base::ConvertSecondsToDuration(period_s_),
@@ -354,6 +362,7 @@ class QuadrupedControl::Impl {
 
     timing_.finish_status();
 
+    
     // Now run our control loop and generate our command.
     std::swap(control_log_, old_control_log_);
     *control_log_ = {};
@@ -766,6 +775,11 @@ class QuadrupedControl::Impl {
         DoControl_Backflip();
         break;
       }
+      case QM::kJointTraj: {
+        //read_Trajectory();
+        DoControl_Trajectory(y_vec[temp_time], yd_vec[temp_time], Tau_vec[temp_time]);
+        break;
+      }
       case QM::kNumModes: {
         mjlib::base::AssertNotReached();
       }
@@ -817,6 +831,7 @@ class QuadrupedControl::Impl {
       case QM::kRest:
       case QM::kJump:
       case QM::kWalk:
+      case QM::kJointTraj:
       case QM::kBackflip: {
         // This can only be done from certain configurations, where we
         // know all four legs are on the ground.  Modify our command
@@ -901,6 +916,7 @@ class QuadrupedControl::Impl {
         case QM::kFault:
         case QM::kZeroVelocity:
         case QM::kJoint:
+        case QM::kJointTraj:
         case QM::kLeg:
         case QM::kNumModes: {
           break;
@@ -1029,6 +1045,84 @@ class QuadrupedControl::Impl {
 
   void DoControl_Joint() {
     ControlJoints(current_command_.joints);
+  }
+
+  void read_Trajectory() {
+    //log_.warn(fmt::format("In trajectory control"));
+    //ControlJoints(current_command_.joints);
+
+    // Clear contents of the vector
+    y_vec.clear();
+    yd_vec.clear();
+    Tau_vec.clear();
+    std::string filename = "trajectory_file.csv"; 
+    
+    io::CSVReader<36> in(filename);
+
+    in.read_header(io::ignore_extra_column, 
+    "q_fl1", "qd_fl1", "Tau_fl1", "q_fl2", "qd_fl2", "Tau_fl2", "q_fl3", "qd_fl3", "Tau_fl3", // front left leg
+    "q_fr1", "qd_fr1", "Tau_fr1", "q_fr2", "qd_fr2", "Tau_fr2", "q_fr3", "qd_fr3", "Tau_fr3", // front right leg
+    "q_bl1", "qd_bl1", "Tau_bl1", "q_bl2", "qd_bl2", "Tau_bl2", "q_bl3", "qd_bl3", "Tau_bl3", // back left leg
+    "q_br1", "qd_br1", "Tau_br1", "q_br2", "qd_br2", "Tau_br2", "q_br3", "qd_br3", "Tau_br3" // back right leg
+    );
+
+    double q_fl1, qd_fl1, Tau_fl1, q_fl2, qd_fl2, Tau_fl2, q_fl3, qd_fl3, Tau_fl3; // front left leg
+    double q_fr1, qd_fr1, Tau_fr1, q_fr2, qd_fr2, Tau_fr2, q_fr3, qd_fr3, Tau_fr3; // front right leg
+    double q_bl1, qd_bl1, Tau_bl1, q_bl2, qd_bl2, Tau_bl2, q_bl3, qd_bl3, Tau_bl3; // back left leg
+    double q_br1, qd_br1, Tau_br1, q_br2, qd_br2, Tau_br2, q_br3, qd_br3, Tau_br3; // back right leg
+    
+    while(in.read_row(
+          q_fl1, qd_fl1, Tau_fl1, q_fl2, qd_fl2, Tau_fl2, q_fl3, qd_fl3, Tau_fl3, // front left leg
+          q_fr1, qd_fr1, Tau_fr1, q_fr2, qd_fr2, Tau_fr2, q_fr3, qd_fr3, Tau_fr3, // front right leg
+          q_bl1, qd_bl1, Tau_bl1, q_bl2, qd_bl2, Tau_bl2, q_bl3, qd_bl3, Tau_bl3, // back left leg
+          q_br1, qd_br1, Tau_br1, q_br2, qd_br2, Tau_br2, q_br3, qd_br3, Tau_br3 // back right leg
+          )){
+
+          // extract joint coordinates
+          Eigen::VectorXd y = Eigen::VectorXd::Zero(12);
+          y(0) = q_fl2, y(1) = q_fl3, y(2) = q_fl1, y(3) = q_fr2, y(4) = q_fr3, y(5) = q_fr1;
+          y(6) = q_bl2, y(7) = q_bl3, y(8) = q_bl1, y(9) = q_br2, y(10) = q_br3, y(11) = q_br1;
+
+          Eigen::VectorXd yd = Eigen::VectorXd::Zero(12);
+          yd(0) = qd_fl2, yd(1) = qd_fl3, yd(2) = qd_fl1, yd(3) = qd_fr2, yd(4) = qd_fr3, yd(5) = qd_fr1;
+          yd(6) = qd_bl2, yd(7) = qd_bl3, yd(8) = qd_bl1, yd(9) = qd_br2, yd(10) = qd_br3, yd(11) = qd_br1;
+
+          Eigen::VectorXd Tau = Eigen::VectorXd::Zero(12);
+          Tau(0) = Tau_fl2, Tau(1) = Tau_fl3, Tau(2) = Tau_fl1, Tau(3) = Tau_fr2, Tau(4) = Tau_fr3, Tau(5) = Tau_fr1;
+          Tau(6) = Tau_bl2, Tau(7) = Tau_bl3, Tau(8) = Tau_bl1, Tau(9) = Tau_br2, Tau(10) = Tau_br3, Tau(11) = Tau_br1;
+                
+          y_vec.push_back(y);
+          yd_vec.push_back(yd);	
+          Tau_vec.push_back(Tau);		
+	  } 
+    time_trajectory = y_vec.size();
+    std::cout<<"CSV file read."<< time_trajectory <<std::endl;
+  }  
+
+  void DoControl_Trajectory(Eigen::VectorXd y, Eigen::VectorXd yd, Eigen::VectorXd Tau)
+  {
+    if(temp_time <= time_trajectory)
+    {
+      std::vector<QC::Joint> out_joints;
+      for (uint j=0; j<y.size(); j++) {
+        QC::Joint out_joint;
+        out_joint.id = j+1;
+        out_joint.power = true;
+        out_joint.angle_deg = y[j] * 180.0/ 3.14;
+        out_joint.velocity_dps = yd[j]* 180.0/ 3.14;
+        //out_joint.torque_Nm = Tau[j];
+        out_joint.torque_Nm = 0.0;
+        // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl; 
+        out_joints.push_back(out_joint);
+      }
+      ControlJoints(std::move(out_joints));
+      temp_time = temp_time + 1;
+    }
+    else{
+      std::cout<<"trajectory finished "<<std::endl;
+      temp_time = 0;
+      DoControl_ZeroVelocity();
+    } 
   }
 
   void DoControl_Leg() {
@@ -2036,9 +2130,7 @@ class QuadrupedControl::Impl {
 
   void ControlJoints(std::vector<QC::Joint> joints) {
     control_log_->joints = std::move(joints);
-    std::sort(control_log_->joints.begin(),
-              control_log_->joints.end(),
-              [](const auto& lhs, const auto& rhs) {
+    std::sort(control_log_->joints.begin(), control_log_->joints.end(), [](const auto& lhs, const auto& rhs) {
                 return lhs.id < rhs.id;
               });
 
@@ -2223,6 +2315,17 @@ class QuadrupedControl::Impl {
       log_.warn(message);
     }
   }
+
+
+
+  // For control timing of trajectory
+  double time_trajectory;
+  double temp_time = 0;
+  std::vector<Eigen::VectorXd> y_vec;
+  std::vector<Eigen::VectorXd> yd_vec;
+  std::vector<Eigen::VectorXd> Tau_vec;
+    
+
 
   boost::asio::any_io_executor executor_;
   mjlib::telemetry::FileWriter* const telemetry_log_;

@@ -22,85 +22,252 @@ import numpy as np
 import pylab
 import subprocess
 import tempfile
+import pandas as pd
 
 import scipy
-import scipy.signal
+import scipy.signal as signal
 import scipy.interpolate
 import scipy.io
 import scipy.io.wavfile
 
 import mjlib.telemetry.file_reader as file_reader
 
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-v', '--video', type=str)
+    #parser.add_argument('-v', '--video', type=str)
     parser.add_argument('-l', '--log', type=str)
-    parser.add_argument('-s', '--video-start', type=float, default=0.0)
-    parser.add_argument('-e', '--video-end', type=float, default=-1.0)
+    #parser.add_argument('-s', '--video-start', type=float, default=0.0)
+    #parser.add_argument('-e', '--video-end', type=float, default=-1.0)
     parser.add_argument('--log-start', type=float, default=0.0)
     parser.add_argument('--log-end', type=float, default=-1.0)
-    parser.add_argument('--distance', type=float, default=1.5,
-                        help='distance in meters between robot and camera')
-    parser.add_argument('--fudge', type=float, default=0.025)
+    #parser.add_argument('--distance', type=float, default=1.5,
+    #                    help='distance in meters between robot and camera')
+    #parser.add_argument('--fudge', type=float, default=0.025)
 
     args = parser.parse_args()
 
-    wav_file = tempfile.NamedTemporaryFile(suffix='.wav')
-
-    subprocess.check_call(
-        "ffmpeg -y -i {} -ac 1 -acodec pcm_s16le {} >/dev/null 2>&1".format(
-            args.video, wav_file.name),
-        shell = True)
-
-    wav_data = scipy.io.wavfile.read(wav_file.name)
-    audio_rate = wav_data[0]
-    audio_data = wav_data[1] / 32767.0
-
-    if args.video_end < 0.0:
-        args.video_end = len(audio_data) / audio_rate
-
-
     fr = file_reader.FileReader(args.log)
-    imu_data = [(x.data.timestamp, x.data.accel_mps2[1])
+
+
+    #IMU DATA 
+
+    imu_data = [(x.data.timestamp, x.data.accel_mps2[0]) #x-component of imu sensor
                 for x in fr.items(['imu'])]
-    imu_start_s = imu_data[0][0]
-    imu_size_s = imu_data[-1][0] - imu_start_s
+    start_s = imu_data[0][0]
+    size_s = imu_data[-1][0] - start_s
 
     if args.log_start < 0:
-        args.log_start = imu_size_s
+        args.log_start = size_s
 
-    orig_imu_x = np.array([x[0] - imu_start_s for x in imu_data])
-    orig_imu_y = np.array([x[1] for x in imu_data])
+    time = np.array([x[0] - start_s for x in imu_data])
+    imu_x = np.array([x[1] for x in imu_data])
+    print("time: ", time)
+    
+    imu_df = pd.DataFrame({'t[s]': time, 'imu_x': imu_x})
+    imu_df.to_csv('imu_df.csv')
+    
+    #pylab.plot(orig_imu_x, orig_imu_y, linewidth=2, label='imu')
+    #pylab.legend()
+    #pylab.show()
+    
+    # Input commands
+    print("command data: ")
+    velocity = [(x.data.timestamp, x.data.v_R[0]) for x in fr.items(['qc_command'])] # translational velocity in mps
+    omega = [(x.data.timestamp, x.data.w_R[2]*np.pi/180.0) for x in fr.items(['qc_command'])] #rotational vel in dps, convert to rad/s
+    start_s = velocity[0][0]
+    time = np.array([x[0] - start_s for x in velocity])
+    command_vel = np.array([x[1] for x in velocity])
+    command_omega = np.array([x[1] for x in omega])
+    df_command = pd.DataFrame({'t[s]': time})
+    df_command['command_vel'] = command_vel
+    df_command['command_omega'] = command_omega
+    df_command.to_csv('quad_command_data_3mps_inside_zero_torque.csv')
+    
+    # Joints control commands
 
-    imu_interp = scipy.interpolate.interp1d(orig_imu_x, orig_imu_y)
-    imu_x = np.arange(args.log_start, args.log_end, 1.0 / audio_rate)
-    imu_y = np.array([imu_interp(x) for x in imu_x])
-    scaled_imu_y = imu_y / imu_y.max()
+    for i in range(12):
+        j=0
+        joint_pos = [(x.data.timestamp, x.data.joints[i][j+3]*np.pi/180.0) for x in fr.items(['qc_control'])] #pos in degrees, convert to rad
+        joint_vel = [(x.data.timestamp, x.data.joints[i][j+4]*np.pi/180.0) for x in fr.items(['qc_control'])] #vel in dps, convert to rad/s
+        joint_tau = [(x.data.timestamp, x.data.joints[i][j+5]) for x in fr.items(['qc_control'])]
+        print("data: ",i)
+        start_s = joint_pos[0][0]
+        time = np.array([x[0] - start_s for x in joint_pos])
+        pos = np.array([x[1] for x in joint_pos])
+        vel = np.array([x[1] for x in joint_vel])
+        tau = np.array([x[1] for x in joint_tau])
+        
+        # get accelerations from velocity using finite difference method
+        acc = np.gradient(vel,time)
+       
+        if i<2: #leg1
+            pos_name = str("q_fl"+str(i+2))
+            vel_name = str("qd_fl"+str(i+2))
+            acc_name = str("qdd_fl"+str(i+2))
+            tau_name = str("Tau_fl"+str(i+2))
+        if (i>2 and i<5): #leg2
+            pos_name = str("q_fr"+str(i+2-3))
+            vel_name = str("qd_fr"+str(i+2-3))
+            acc_name = str("qdd_fr"+str(i+2-3))
+            tau_name = str("Tau_fr"+str(i+2-3))
+        if (i>5 and i<8): #leg3
+            pos_name = str("q_bl"+str(i+2-6))
+            vel_name = str("qd_bl"+str(i+2-6))
+            acc_name = str("qdd_bl"+str(i+2-6))
+            tau_name = str("Tau_bl"+str(i+2-6))
+        if (i>8 and i<11): #leg4
+            pos_name = str("q_br"+str(i+2-9))
+            vel_name = str("qd_br"+str(i+2-9))
+            acc_name = str("qdd_br"+str(i+2-9))
+            tau_name = str("Tau_br"+str(i+2-9))
+        if i==2:
+            pos_name = str("q_fl1")
+            vel_name = str("qd_fl1")
+            acc_name = str("qdd_fl1")
+            tau_name = str("Tau_fl1")
+        if i==5:
+            pos_name = str("q_fr1")
+            vel_name = str("qd_fr1")
+            acc_name = str("qdd_fr1")
+            tau_name = str("Tau_fr1")
+        if i==8:
+            pos_name = str("q_bl1")
+            vel_name = str("qd_bl1")
+            acc_name = str("qdd_bl1")
+            tau_name = str("Tau_bl1")
+        if i==11:
+            pos_name = str("q_br1")
+            vel_name = str("qd_br1")
+            acc_name = str("qdd_br1")
+            tau_name = str("Tau_br1")
+            
+        
+        if i==0:
+            df = pd.DataFrame({'t[s]': time})
+        df[pos_name] = pos
+        df[vel_name] = vel
+        df[acc_name] = acc
+        df[tau_name] = tau
+        print(pos_name)
+        #pylab.plot(orig_x, orig_y, linewidth=2, label=str('joint '+str(i)))
+        #pylab.legend()
+        #pylab.show()
+    column_names = ["t[s]", "q_fl1", "qd_fl1","qdd_fl1","Tau_fl1","q_fl2", "qd_fl2","qdd_fl2","Tau_fl2","q_fl3", "qd_fl3","qdd_fl3","Tau_fl3",
+                            "q_fr1", "qd_fr1","qdd_fr1","Tau_fr1","q_fr2", "qd_fr2","qdd_fr2","Tau_fr2","q_fr3", "qd_fr3","qdd_fr3","Tau_fr3",
+                            "q_bl1", "qd_bl1","qdd_bl1","Tau_bl1","q_bl2", "qd_bl2","qdd_bl2","Tau_bl2","q_bl3", "qd_bl3","qdd_bl3","Tau_bl3",
+                            "q_br1", "qd_br1","qdd_br1","Tau_br1","q_br2", "qd_br2","qdd_br2","Tau_br2","q_br3", "qd_br3","qdd_br3","Tau_br3"]
+    df = df.reindex(columns=column_names)
+    df.to_csv('quad_control_data_3mps_inside_zero_torque.csv')
+    
+    # Joints status output
+    
+    for i in range(12):
+        j=0
+        joint_pos = [(x.data.timestamp, x.data.state.joints[i][j+1]*np.pi/180.0) for x in fr.items(['qc_status'])] #pos in degrees, convert to rad
+        joint_vel = [(x.data.timestamp, x.data.state.joints[i][j+2]*np.pi/180.0) for x in fr.items(['qc_status'])] #vel in dps, convert to rad/s
+        joint_tau = [(x.data.timestamp, x.data.state.joints[i][j+3]) for x in fr.items(['qc_status'])]
+        print("data: ",i)
+        start_s = joint_pos[0][0]
+        time = np.array([x[0] - start_s for x in joint_pos])
+        pos = np.array([x[1] for x in joint_pos])
+        vel = np.array([x[1] for x in joint_vel])
+        tau = np.array([x[1] for x in joint_tau])
+        b, a = signal.butter(3, 0.2)
+        vel = signal.filtfilt(b, a, vel)
 
-    clip_audio_y = audio_data[int(args.video_start * audio_rate) : int(args.video_end * audio_rate)]
+        # get accelerations from velocity using finite difference method
+        acc = np.gradient(vel,time)
+        acc = signal.filtfilt(b, a, acc)
+        tau = signal.filtfilt(b, a, tau)
+        if i<2: #leg1
+            pos_name = str("q_fl"+str(i+2))
+            vel_name = str("qd_fl"+str(i+2))
+            acc_name = str("qdd_fl"+str(i+2))
+            tau_name = str("Tau_fl"+str(i+2))
+        if (i>2 and i<5): #leg2
+            pos_name = str("q_fr"+str(i+2-3))
+            vel_name = str("qd_fr"+str(i+2-3))
+            acc_name = str("qdd_fr"+str(i+2-3))
+            tau_name = str("Tau_fr"+str(i+2-3))
+        if (i>5 and i<8): #leg3
+            pos_name = str("q_bl"+str(i+2-6))
+            vel_name = str("qd_bl"+str(i+2-6))
+            acc_name = str("qdd_bl"+str(i+2-6))
+            tau_name = str("Tau_bl"+str(i+2-6))
+        if (i>8 and i<11): #leg4
+            pos_name = str("q_br"+str(i+2-9))
+            vel_name = str("qd_br"+str(i+2-9))
+            acc_name = str("qdd_br"+str(i+2-9))
+            tau_name = str("Tau_br"+str(i+2-9))
+        if i==2:
+            pos_name = str("q_fl1")
+            vel_name = str("qd_fl1")
+            acc_name = str("qdd_fl1")
+            tau_name = str("Tau_fl1")
+        if i==5:
+            pos_name = str("q_fr1")
+            vel_name = str("qd_fr1")
+            acc_name = str("qdd_fr1")
+            tau_name = str("Tau_fr1")
+        if i==8:
+            pos_name = str("q_bl1")
+            vel_name = str("qd_bl1")
+            acc_name = str("qdd_bl1")
+            tau_name = str("Tau_bl1")
+        if i==11:
+            pos_name = str("q_br1")
+            vel_name = str("qd_br1")
+            acc_name = str("qdd_br1")
+            tau_name = str("Tau_br1")
+            
+        
+        if i==0:
+            df_status = pd.DataFrame({'t[s]': time})
+        df_status[pos_name] = pos
+        df_status[vel_name] = vel
+        df_status[acc_name] = acc
+        df_status[tau_name] = tau
+        print(i,pos_name)
+    column_names = ["t[s]", "q_fl1", "qd_fl1","qdd_fl1","Tau_fl1","q_fl2", "qd_fl2","qdd_fl2","Tau_fl2","q_fl3", "qd_fl3","qdd_fl3","Tau_fl3",
+                            "q_fr1", "qd_fr1","qdd_fr1","Tau_fr1","q_fr2", "qd_fr2","qdd_fr2","Tau_fr2","q_fr3", "qd_fr3","qdd_fr3","Tau_fr3",
+                            "q_bl1", "qd_bl1","qdd_bl1","Tau_bl1","q_bl2", "qd_bl2","qdd_bl2","Tau_bl2","q_bl3", "qd_bl3","qdd_bl3","Tau_bl3",
+                            "q_br1", "qd_br1","qdd_br1","Tau_br1","q_br2", "qd_br2","qdd_br2","Tau_br2","q_br3", "qd_br3","qdd_br3","Tau_br3"]
+    # print(df_status.head())
+    df_status = df_status.reindex(columns=column_names)
+    # print(df_status.head())
+    df_status.to_csv('quad_status_data_3mps_inside_zero_torque.csv')
+    
+    # ## Legs position, velocity and force data in x,y,and z direction
 
-    audio_reference_time_s = 0.5 * (args.video_start + args.video_end)
-
-    corr = scipy.signal.correlate(scaled_imu_y, clip_audio_y, mode='same')
-    best_fit = np.argmax(corr ** 2)
-    best_fit_s = best_fit / audio_rate
-
-    offset_s = best_fit_s - audio_reference_time_s + args.log_start
-
-    print("offset_s", offset_s)
-
-    clip_audio_x = np.arange(0., len(clip_audio_y) / audio_rate, 1.0 / audio_rate) + args.video_start + offset_s
-
-    sound_speed_in_air_mps = 343.0
-    actual_offset_s = offset_s + args.fudge + args.distance / sound_speed_in_air_mps
-    print("actual_offset_s", actual_offset_s)
-
-    pylab.plot(clip_audio_x, clip_audio_y, label='audio')
-    pylab.plot(imu_x, scaled_imu_y, linewidth=2, label='imu')
-    pylab.legend()
-    pylab.show()
-
+    # for i in range(4):
+    #     j=0
+    #     _pos = [(x.data.timestamp, x.data.state.legs_B[i][j+1]) for x in fr.items(['qc_status'])] 
+    #     _vel = [(x.data.timestamp, x.data.state.legs_B[i][j+2]) for x in fr.items(['qc_status'])] 
+    #     _force = [(x.data.timestamp, x.data.state.legs_B[i][j+3]) for x in fr.items(['qc_status'])]
+    #     _stance = [(x.data.timestamp, x.data.state.legs_B[i][j+4]) for x in fr.items(['qc_status'])]
+    #     print("Leg: ",i+1)
+    #     start_s = _pos[0][0]
+    #     time = np.array([x[0] - start_s for x in _pos])
+    #     pos = np.array([x[1] for x in _pos])
+    #     vel = np.array([x[1] for x in _vel])
+    #     force = np.array([x[1] for x in _force])
+    #     stance = np.array([x[1] for x in _stance])
+        
+    #     df_leg_pos = pd.DataFrame(pos, columns=['pos_x_leg{}'.format(i+1), 'pos_y_leg{}'.format(i+1), 'pos_z_leg{}'.format(i+1)])
+    #     df_leg_vel = pd.DataFrame(vel, columns=['vel_x_leg{}'.format(i+1), 'vel_y_leg{}'.format(i+1), 'vel_z_leg{}'.format(i+1)])
+    #     df_leg_force = pd.DataFrame(force, columns=['force_x_leg{}'.format(i+1), 'force_y_leg{}'.format(i+1), 'force_z_leg{}'.format(i+1)])
+    #     df_leg_stance = pd.DataFrame(stance, columns=['stance_leg{}'.format(i+1)])
+    #     if i==0:
+    #         df_leg = pd.DataFrame({'t[s]': time})
+    #     temp = pd.concat([df_leg_pos,df_leg_vel,df_leg_force,df_leg_stance],axis=1)
+    #     df_leg = pd.concat([df_leg, temp], axis = 1)
+    # print(df_leg)
+    # df_leg.to_csv('status_legs_3mps_outside.csv')
+    
+    
+    
+    
+    print("done")
 
 if __name__ == '__main__':
     main()

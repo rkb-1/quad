@@ -65,6 +65,21 @@ struct QuadrupedConfig {
 
   std::vector<Leg> legs;
 
+  //Added new structure
+  struct Leg_onemove {
+    int leg = 0;
+    Sophus::SE3d pose_foot;
+
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(leg));
+      a->Visit(MJ_NVP(pose_foot));
+    }
+  };
+
+  Leg_onemove leg_onemove;
+  ////////until here
+  
   struct Bounds {
     double min_z_B = 0.0;
     double max_z_B = 0.3;

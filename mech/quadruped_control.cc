@@ -1064,7 +1064,7 @@ namespace mjmech
             case QM::kJointTraj:
             case QM::kLeg:
             {
-              status_.state.legs_B = {};
+              status_.state.leg_onemove = {};
               break;
             }
             case QM::kNumModes:
@@ -1319,29 +1319,88 @@ namespace mjmech
         MJ_ASSERT(!old_control_log_->legs_R.empty());
 
         legs_R = old_control_log_->legs_R;
-
+        
         // Ensure all gains are back to their default and that
         // everything is marked as in stance.
-        for (auto &leg_R : legs_R)
+        using M = QuadrupedState::Leg::Mode;
+        std::cout << "Mode in leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
+        switch (status_.state.leg_onemove.mode)
         {
-          leg_R.kp_N_m = config_.default_kp_N_m;
-          leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-          leg_R.kp_scale = {};
-          leg_R.kd_scale = {};
-          leg_R.stance = 1.0;
-          leg_R.landing = false;
-          // We don't want to be moving laterally when in rest, just up
-          // and down.
-          leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
+          case M::kStanceAllLeg:  { DoControl_Rest();
+                                    status_.state.leg_onemove.mode = M::kSwingOneLeg; 
+                                    break;
+                                  }
+          case M::kSwingOneLeg:{
+                                for (auto &leg_R : legs_R)
+                                {
+                                  if(leg_R.leg_id == config_.leg_onemove.id)
+                                  {
+                                    std::cout << "We have to move one leg here" <<std::endl;
+                                    //leg_R.kp_N_m = config_.default_kp_N_m;
+                                    //leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.leg_id = config_.leg_onemove.id;
+                                    leg_R.power = true;
+                                    leg_R.position = config_.leg_onemove.pose_foot;
+                                    std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
+                                    leg_R.velocity = base::Point3D();
+                                    leg_R.stance = 0.0;
+                                    //legs_R.push_back(leg_R);
+                                  }
+                                  else{
+                                    std::cout << "Leg id: " << leg_R.leg_id << std::endl;
+                                    leg_R.kp_N_m = config_.default_kp_N_m;
+                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.kp_scale = {};
+                                    leg_R.kd_scale = {};
+                                    leg_R.stance = 1.0;
+                                    leg_R.landing = false;
+                                    // We don't want to be moving laterally when in rest, just up
+                                    // and down.
+                                    leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
+                                  }
+                                }
+                                status_.state.leg_onemove.mode = M::kDone; 
+                                
+                                break;
+                              }
+          case M::kDone:
+                        {
+                          // for (auto &leg_R : legs_R)
+                          // {
+                          //   if(leg_R.leg_id == config_.leg_onemove.id)
+                          //   {
+                          //     std::cout << "We have to move one leg here" <<std::endl;
+                          //     //leg_R.kp_N_m = config_.default_kp_N_m;
+                          //     //leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                          //     leg_R.leg_id = config_.leg_onemove.id;
+                          //     leg_R.power = true;
+                          //     leg_R.position = config_.leg_onemove.pose_R;
+                          //     std::cout<< "pose from config file back to position: " << config_.leg_onemove.pose_R[0] <<std::endl;
+                          //     leg_R.velocity = base::Point3D();
+                          //     leg_R.stance = 1.0;
+                          //     //legs_R.push_back(leg_R);
+                          //   }
+                          //   else{
+                          //     std::cout << "Leg id: " << leg_R.leg_id << std::endl;
+                          //     leg_R.kp_N_m = config_.default_kp_N_m;
+                          //     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                          //     leg_R.kp_scale = {};
+                          //     leg_R.kd_scale = {};
+                          //     leg_R.stance = 1.0;
+                          //     leg_R.landing = false;
+                          //     // We don't want to be moving laterally when in rest, just up
+                          //     // and down.
+                          //     leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
+                          //   }
+                            
+                          // }
+                          DoControl_StandUp_Standing();
+                          break;
+                        }
+                       
+          default:
+            break;
         }
-        QuadrupedContext::MoveOptions move_options;
-        move_options.override_acceleration = config_.stand_up.acceleration;
-        status_.state.rest.done = context_->MoveLegsFixedSpeedZ(all_leg_ids_,
-                                                                &legs_R,
-                                                                config_.rest.velocity,
-                                                                config_.stand_height,
-                                                                move_options);
-
         auto desired_RB = context_->LevelDesiredRB();
         desired_RB.pose.so3() = current_command_.rest.offset_RB.so3() * desired_RB.pose.so3();
         desired_RB.pose.translation() += current_command_.rest.offset_RB.translation();
@@ -1364,7 +1423,7 @@ namespace mjmech
           Fault("timeout");
           return;
         }
-        std::cout << "debug status standup mode : " << status_.state.stand_up.mode << std::endl;
+        //std::cout << "debug status standup mode : " << status_.state.stand_up.mode << std::endl;
         switch (status_.state.stand_up.mode)
         {
           case M::kPrepositioning:
@@ -2175,8 +2234,7 @@ namespace mjmech
         }
       }
 
-      void BackflipUpdateLegs(std::vector<QC::Leg> *legs_R,
-                              double acceleration)
+      void BackflipUpdateLegs(std::vector<QC::Leg> *legs_R, double acceleration)
       {
         auto &bs = status_.state.backflip;
 
@@ -2752,9 +2810,7 @@ namespace mjmech
       boost::signals2::signal<void(const CommandLog *)> command_signal_;
       boost::signals2::signal<void(const ControlLog *)> control_signal_;
       boost::signals2::signal<void(const AttitudeData *)> imu_signal_;
-      boost::signals2::signal<
-          void(const ReportedServoConfig *)>
-          servo_config_signal_;
+      boost::signals2::signal<void(const ReportedServoConfig *)> servo_config_signal_;
 
       std::vector<moteus::Value> values_cache_;
 

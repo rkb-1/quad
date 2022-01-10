@@ -98,6 +98,7 @@ struct QuadrupedState {
   };
 
   std::vector<Leg> legs_B;
+  Leg leg_onemove;
 
   // And finally, the robot level.
   struct Robot {

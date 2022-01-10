@@ -68,7 +68,7 @@ struct QuadrupedConfig {
   //Added new structure
   struct Leg_onemove {
     int id = 0;
-    base::Point3D pose_foot = {0.25, -0.205, 0.020}; 
+    base::Point3D pose_foot = {0.18, -0.205, 0.040}; 
     base::Point3D pose_R = {0.151, 0.219, 0.049};
 
     template <typename Archive>

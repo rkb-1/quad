@@ -1336,8 +1336,8 @@ namespace mjmech
                                   if(leg_R.leg_id == config_.leg_onemove.id)
                                   {
                                     std::cout << "We have to move one leg here" <<std::endl;
-                                    //leg_R.kp_N_m = config_.default_kp_N_m;
-                                    //leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.kp_N_m = config_.default_kp_N_m;
+                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
                                     leg_R.leg_id = config_.leg_onemove.id;
                                     leg_R.power = true;
                                     leg_R.position = config_.leg_onemove.pose_foot;
@@ -1347,7 +1347,7 @@ namespace mjmech
                                     //legs_R.push_back(leg_R);
                                   }
                                   else{
-                                    std::cout << "Leg id: " << leg_R.leg_id << std::endl;
+                                    //std::cout << "Leg id: " << leg_R.leg_id << std::endl;
                                     leg_R.kp_N_m = config_.default_kp_N_m;
                                     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
                                     leg_R.kp_scale = {};
@@ -1359,12 +1359,45 @@ namespace mjmech
                                     leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
                                   }
                                 }
-                                status_.state.leg_onemove.mode = M::kDone; 
+                                QuadrupedContext::MoveOptions move_options;
+                                move_options.override_acceleration = config_.stand_up.acceleration;
+                                std::cout<< "still here." << std::endl;
+                                const bool done = context_->MoveLegsFixedSpeed(
+                                                        &legs_R, config_.stand_up.velocity, [&]()
+                                                        {
+                                                          std::vector<std::pair<int, base::Point3D>> result;
+                                                          for (const auto &leg : context_->legs)
+                                                          {
+                                                            if(leg.leg == config_.leg_onemove.id)
+                                                            {
+                                                              base::Point3D pose = leg.stand_up_R;
+                                                              //pose.z() = config_.stand_height;
+                                                              result.push_back(std::make_pair(leg.leg, pose));
+
+                                                            }
+                                                            else{
+                                                              base::Point3D pose = leg.stand_up_R;
+                                                              //pose.z() = config_.stand_height;
+                                                              result.push_back(std::make_pair(leg.leg, pose));
+
+                                                            }
+
+                                                            
+                                                          }
+                                                          return result;
+                                                        }(),
+                                                        move_options);
+                                std::cout<<"done or not: " << done <<std::endl;
+                                if(done){
+                                    std::cout<< "change to new state "<< std::endl;
+                                    status_.state.leg_onemove.mode = M::kDone; 
+                                }
                                 
                                 break;
                               }
-          case M::kDone:
+          case M::kDone: 
                         {
+                            std::cout << "Done phase:" << std::endl;
                           // for (auto &leg_R : legs_R)
                           // {
                           //   if(leg_R.leg_id == config_.leg_onemove.id)

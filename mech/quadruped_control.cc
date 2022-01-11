@@ -1338,6 +1338,7 @@ namespace mjmech
                                     std::cout << "We have to move one leg here" <<std::endl;
                                     leg_R.kp_N_m = config_.default_kp_N_m;
                                     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.kp_scale = {};
                                     leg_R.leg_id = config_.leg_onemove.id;
                                     leg_R.power = true;
                                     leg_R.position = config_.leg_onemove.pose_foot;
@@ -1350,8 +1351,8 @@ namespace mjmech
                                     //std::cout << "Leg id: " << leg_R.leg_id << std::endl;
                                     leg_R.kp_N_m = config_.default_kp_N_m;
                                     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                    leg_R.kp_scale = {};
-                                    leg_R.kd_scale = {};
+                                    leg_R.kp_scale = {10,10,10};
+                                    leg_R.kd_scale = {20,20,20};
                                     leg_R.stance = 1.0;
                                     leg_R.landing = false;
                                     // We don't want to be moving laterally when in rest, just up
@@ -1363,21 +1364,22 @@ namespace mjmech
                                 move_options.override_acceleration = config_.stand_up.acceleration;
                                 std::cout<< "still here." << std::endl;
                                 const bool done = context_->MoveLegsFixedSpeed(
-                                                        &legs_R, config_.stand_up.velocity, [&]()
+                                                        &legs_R, config_.stand_up.velocity/10, [&]()
                                                         {
                                                           std::vector<std::pair<int, base::Point3D>> result;
                                                           for (const auto &leg : context_->legs)
                                                           {
                                                             if(leg.leg == config_.leg_onemove.id)
                                                             {
-                                                              base::Point3D pose = leg.stand_up_R;
+                                                              base::Point3D pose = config_.leg_onemove.pose_foot;
+                                                              std::cout<< "position inside condition" << pose[0] << std::endl;
                                                               //pose.z() = config_.stand_height;
                                                               result.push_back(std::make_pair(leg.leg, pose));
 
                                                             }
                                                             else{
                                                               base::Point3D pose = leg.stand_up_R;
-                                                              //pose.z() = config_.stand_height;
+                                                              pose.z() = config_.stand_height;
                                                               result.push_back(std::make_pair(leg.leg, pose));
 
                                                             }
@@ -1387,9 +1389,9 @@ namespace mjmech
                                                           return result;
                                                         }(),
                                                         move_options);
-                                std::cout<<"done or not: " << done <<std::endl;
+                                //std::cout<<"done or not: " << done <<std::endl;
                                 if(done){
-                                    std::cout<< "change to new state "<< std::endl;
+                                    std::cout<< "change to new state \n\n\n\n\n"<< std::endl;
                                     status_.state.leg_onemove.mode = M::kDone; 
                                 }
                                 
@@ -1397,37 +1399,57 @@ namespace mjmech
                               }
           case M::kDone: 
                         {
-                            std::cout << "Done phase:" << std::endl;
-                          // for (auto &leg_R : legs_R)
-                          // {
-                          //   if(leg_R.leg_id == config_.leg_onemove.id)
-                          //   {
-                          //     std::cout << "We have to move one leg here" <<std::endl;
-                          //     //leg_R.kp_N_m = config_.default_kp_N_m;
-                          //     //leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                          //     leg_R.leg_id = config_.leg_onemove.id;
-                          //     leg_R.power = true;
-                          //     leg_R.position = config_.leg_onemove.pose_R;
-                          //     std::cout<< "pose from config file back to position: " << config_.leg_onemove.pose_R[0] <<std::endl;
-                          //     leg_R.velocity = base::Point3D();
-                          //     leg_R.stance = 1.0;
-                          //     //legs_R.push_back(leg_R);
-                          //   }
-                          //   else{
-                          //     std::cout << "Leg id: " << leg_R.leg_id << std::endl;
-                          //     leg_R.kp_N_m = config_.default_kp_N_m;
-                          //     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                          //     leg_R.kp_scale = {};
-                          //     leg_R.kd_scale = {};
-                          //     leg_R.stance = 1.0;
-                          //     leg_R.landing = false;
-                          //     // We don't want to be moving laterally when in rest, just up
-                          //     // and down.
-                          //     leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
-                          //   }
+                          std::cout << "Done phase:" << config_.stand_up.velocity/10 << std::endl;
+                          for (auto &leg_R : legs_R)
+                          {
+                            if(leg_R.leg_id == config_.leg_onemove.id)
+                            {
+                              //std::cout << "We have to move back to previous position" <<std::endl;
+                              leg_R.kp_N_m = config_.default_kp_N_m;
+                              leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                              leg_R.leg_id = config_.leg_onemove.id;
+                              leg_R.power = true;
+                              leg_R.position = config_.leg_onemove.pose_R;
+                              std::cout<< "pose from config file back to position: " << config_.leg_onemove.pose_R[2] <<std::endl;
+                              leg_R.velocity = base::Point3D();
+                              leg_R.stance = 1.0;
+                              //legs_R.push_back(leg_R);
+                            }
+                            else{
+                              //std::cout << "Leg id: " << leg_R.leg_id << std::endl;
+                              leg_R.kp_N_m = config_.default_kp_N_m;
+                              leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                              leg_R.kp_scale = {10,10,10};
+                              leg_R.kd_scale = {20,20,20};
+                              leg_R.stance = 1.0;
+                              leg_R.landing = false;
+                              // We don't want to be moving laterally when in rest, just up
+                              // and down.
+                              leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
+                            }
                             
-                          // }
-                          DoControl_StandUp_Standing();
+                          }
+                          QuadrupedContext::MoveOptions move_options;
+                          move_options.override_acceleration = config_.stand_up.acceleration;
+
+                          const bool done = context_->MoveLegsFixedSpeed(
+                                                                          &legs_R, config_.stand_up.velocity, [&]()
+                                                                          {
+                                                                            std::vector<std::pair<int, base::Point3D>> result;
+                                                                            for (const auto &leg : context_->legs)
+                                                                            {
+                                                                              base::Point3D pose = leg.stand_up_R;
+                                                                              pose.z() = config_.stand_height;
+                                                                              result.push_back(std::make_pair(leg.leg, pose));
+                                                                            }
+                                                                            return result;
+                                                                          }(),
+                                                                          move_options);
+                          
+                          if(done){
+                                    std::cout<< "go back to rest state"<< std::endl;
+                                    DoControl_Rest();
+                                }
                           break;
                         }
                        

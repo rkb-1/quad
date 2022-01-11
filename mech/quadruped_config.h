@@ -68,13 +68,14 @@ struct QuadrupedConfig {
   //Added new structure
   struct Leg_onemove {
     int id = 0;
-    base::Point3D pose_foot = {0.18, -0.205, 0.040}; 
-    base::Point3D pose_R = {0.151, 0.219, 0.049};
-
+    base::Point3D pose_foot = {0.38, -0.205, 0.010}; 
+    base::Point3D pose_R = {0.200, -0.160, 0.23};
+    
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(id));
       a->Visit(MJ_NVP(pose_foot));
+      a->Visit(MJ_NVP(pose_R));
     }
   };
 

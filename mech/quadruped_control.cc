@@ -1323,13 +1323,46 @@ namespace mjmech
         // Ensure all gains are back to their default and that
         // everything is marked as in stance.
         using M = QuadrupedState::Leg::Mode;
-        //std::cout << "Mode in leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
+        //std::cout<< "current pose: " << status_.state.leg_onemove.position[0]<< ", "<<status_.state.leg_onemove.position[1] <<", " <<status_.state.leg_onemove.position[2] <<std::endl;
         switch (status_.state.leg_onemove.mode)
         {
-          case M::kStanceAllLeg:  { DoControl_Rest();
-                                    status_.state.leg_onemove.mode = M::kSwingOneLeg; 
-                                    break;
+          case M::kStanceAllLeg:  
+                              { 
+                                //std::cout << "shift center of mass" <<std::endl;
+                                for (auto &leg_R : legs_R)
+                                {
+                                  if(leg_R.leg_id == 0)
+                                  {
+                                    leg_R.kp_N_m = config_.default_kp_N_m;
+                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.power = true;
+                                    leg_R.position = {0.3,-0.26,0.020};
+                                    //std::cout<< "current pose: " << status_.state.leg_onemove.position[0]<< ", "<<status_.state.leg_onemove.position[1] <<", " <<status_.state.leg_onemove.position[2] <<std::endl;
+                                    //leg_R.velocity = {0.1,0.1,0.1};
+                                    leg_R.stance = 1.0;
                                   }
+                                  if(leg_R.leg_id == 3){
+                                    leg_R.kp_N_m = config_.default_kp_N_m;
+                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.power = true;
+                                    leg_R.position = {-0.18,0.205,0.18};
+                                    //std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
+                                    //leg_R.velocity = {0.1,0.1,0.1};
+                                    leg_R.stance = 1.0;
+                                  }
+                                  else{
+                                    leg_R.kp_N_m = config_.default_kp_N_m;
+                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+                                    leg_R.power = true;
+                                    //leg_R.position = {0.2,0.16,0.27};
+                                    //std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
+                                    //leg_R.velocity = {0.1,0.1,0.1};
+                                    leg_R.stance = 1.0;
+                                  }
+                                }
+                                status_.state.leg_onemove.mode = M::kSwingOneLeg; 
+                                break;
+                              }
           case M::kSwingOneLeg:{
                                 for (auto &leg_R : legs_R)
                                 {
@@ -1338,7 +1371,7 @@ namespace mjmech
                                     std::cout << "We have to move one leg here" <<std::endl;
                                     leg_R.kp_N_m = config_.default_kp_N_m;
                                     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                    leg_R.kp_scale = {0.5,0.5,0.5};
+                                    
                                     leg_R.leg_id = config_.leg_onemove.id;
                                     leg_R.power = true;
                                     leg_R.position = config_.leg_onemove.pose_foot;
@@ -1346,19 +1379,6 @@ namespace mjmech
                                     leg_R.velocity = {0.1,0.1,0.1};
                                     leg_R.stance = 0.0;
                                     
-                                  }
-                                  else{
-                                    //std::cout << "Leg id: " << leg_R.leg_id << std::endl;
-                                    leg_R.kp_N_m = config_.default_kp_N_m;
-                                    leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                    leg_R.kp_scale = {10,10,10};
-                                    leg_R.kd_scale = {20,20,20};
-                                    leg_R.stance = 1.0;
-                                    leg_R.landing = false;
-                                    // We don't want to be moving laterally when in rest, just up
-                                    // and down.
-                                    //leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
-             
                                   }
                                 }
                                 // QuadrupedContext::MoveOptions move_options;
@@ -1413,6 +1433,8 @@ namespace mjmech
           case M::kDone: 
                         {
                           std::cout << "Mode in leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
+                          
+                          //status_.mode = QM::kZeroVelocity;
                           //std::cout << "Done phase:" << config_.stand_up.velocity/10 << std::endl;
 
                           // for (auto &leg_R : legs_R)
@@ -1424,7 +1446,7 @@ namespace mjmech
                           //     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
                           //     leg_R.leg_id = config_.leg_onemove.id;
                           //     leg_R.power = true;
-                          //     //leg_R.position = config_.leg_onemove.pose_R;
+                          //     leg_R.position = config_.leg_onemove.pose_R;
                           //     std::cout<< "pose from config file back to position: " << config_.leg_onemove.pose_R[2] <<std::endl;
                           //     leg_R.velocity = base::Point3D();
                           //     leg_R.stance = 1.0;

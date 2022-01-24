@@ -522,7 +522,7 @@ class Application {
           if (this._mode == "idle") { return "rest"; }
 
           if (!movement_commanded && !force_step &&
-              (this._mode == "walk" ||
+              (this._mode == "walk" || this._mode == "leg" || this._mode == "traj_replay" ||
                this._mode == "pronk")) {
             return "rest";
           }

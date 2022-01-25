@@ -522,7 +522,7 @@ class Application {
           if (this._mode == "idle") { return "rest"; }
 
           if (!movement_commanded && !force_step &&
-              (this._mode == "walk" || this._mode == "leg" || this._mode == "traj_replay" ||
+              (this._mode == "walk" ||
                this._mode == "pronk")) {
             return "rest";
           }
@@ -624,8 +624,8 @@ class Application {
         if (cur == "zero_velocity") { return "damped"; }
         if (cur == "rest") { return "idle"; }
         if (cur == "jump") { return "pronk"; }
-        //if (cur == "traj_replay") { return "traj_replay" };
-        //if (cur == "leg") { return "leg" };
+        if (cur == "traj_replay") { return "traj_replay" };
+        if (cur == "leg") { return "leg" };
         return cur;
       })() + ')';
     }

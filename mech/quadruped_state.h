@@ -87,6 +87,7 @@ struct QuadrupedState {
 
     template <typename Archive>
     void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(mode));
       a->Visit(MJ_NVP(leg));
       a->Visit(MJ_NVP(position));
       a->Visit(MJ_NVP(velocity));

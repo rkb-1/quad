@@ -907,9 +907,18 @@ class QuadrupedControl::Impl {
           break;
         }
         case QM::kConfiguring:
-        case QM::kStopped:
+        case QM::kStopped:{
+          temp_time = 0;
+          traj_finished = false;
+          break;
+        }
+
         case QM::kFault:
-        case QM::kZeroVelocity:
+        case QM::kZeroVelocity:{
+          temp_time = 0;
+          traj_finished = false;
+          break;
+        }
         case QM::kJoint:
         case QM::kJointTraj:
         case QM::kLeg: {
@@ -1054,8 +1063,8 @@ class QuadrupedControl::Impl {
     y_vec.clear();
     yd_vec.clear();
     Tau_vec.clear();
-    std::string filename = "trajectory_file.csv";
-
+    //std::string filename = "trajectory_file.csv";
+    std::string filename = "motion_trot.csv";
     io::CSVReader<36> in(filename);
 
     in.read_header(io::ignore_extra_column,
@@ -1100,7 +1109,7 @@ class QuadrupedControl::Impl {
   }
 
   void DoControl_Trajectory(Eigen::VectorXd y, Eigen::VectorXd yd, Eigen::VectorXd Tau){
-    if (temp_time <= time_trajectory){
+    if (temp_time <= time_trajectory && !traj_finished){
       std::vector<QC::Joint> out_joints;
       for (uint j = 0; j < y.size(); j++){
         QC::Joint out_joint;
@@ -1117,9 +1126,23 @@ class QuadrupedControl::Impl {
       temp_time = temp_time + 1;
     }
     else{
+      std::vector<QC::Joint> out_joints;
+      for (uint j = 0; j < y.size(); j++){
+        QC::Joint out_joint;
+        out_joint.id = j + 1;
+        out_joint.power = true;
+        out_joint.angle_deg = 0;
+        out_joint.velocity_dps = 0;
+        out_joint.torque_Nm = 0;
+        //out_joint.torque_Nm = 0.0;
+        // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
+        out_joints.push_back(out_joint);
+      }
+      ControlJoints(std::move(out_joints));
       std::cout << "trajectory finished " << std::endl;
       temp_time = 0;
-      DoControl_Rest();
+      traj_finished = true;
+      //DoControl_Stopped();
     }
   }
 
@@ -1129,188 +1152,127 @@ class QuadrupedControl::Impl {
 
     std::vector<QC::Leg> legs_R;
 
-    MJ_ASSERT(!old_control_log_->legs_R.empty());
-
-    legs_R = old_control_log_->legs_R;
+    //MJ_ASSERT(!old_control_log_->legs_R.empty());
     
+    legs_R = old_control_log_->legs_R;
+
     // Ensure all gains are back to their default and that
     // everything is marked as in stance.
     using M = QuadrupedState::Leg::Mode;
+    auto desired_RB = context_->LevelDesiredRB();
     //std::cout<< "current pose: " << status_.state.leg_onemove.position[0]<< ", "<<status_.state.leg_onemove.position[1] <<", " <<status_.state.leg_onemove.position[2] <<std::endl;
     switch (status_.state.leg_onemove.mode)
     {
-      case M::kStanceAllLeg:  
-                          { 
-                            //std::cout << "shift center of mass" <<std::endl;
-                            for (auto &leg_R : legs_R)
-                            {
-                              if(leg_R.leg_id == 0)
-                              {
-                                leg_R.kp_N_m = config_.default_kp_N_m;
-                                leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                leg_R.power = true;
-                                leg_R.position = {0.3,-0.26,0.020};
-                                //std::cout<< "current pose: " << status_.state.leg_onemove.position[0]<< ", "<<status_.state.leg_onemove.position[1] <<", " <<status_.state.leg_onemove.position[2] <<std::endl;
-                                //leg_R.velocity = {0.1,0.1,0.1};
-                                leg_R.stance = 1.0;
-                              }
-                              if(leg_R.leg_id == 3){
-                                leg_R.kp_N_m = config_.default_kp_N_m;
-                                leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                leg_R.power = true;
-                                leg_R.position = {-0.18,0.205,0.18};
-                                //std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
-                                //leg_R.velocity = {0.1,0.1,0.1};
-                                leg_R.stance = 1.0;
-                              }
-                              else{
-                                leg_R.kp_N_m = config_.default_kp_N_m;
-                                leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                leg_R.power = true;
-                                //leg_R.position = {0.2,0.16,0.27};
-                                //std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
-                                //leg_R.velocity = {0.1,0.1,0.1};
-                                leg_R.stance = 1.0;
-                              }
-                            }
-                            status_.state.leg_onemove.mode = M::kSwingOneLeg; 
-                            break;
-                          }
+      case M::kStanceAllLeg:{
+        if(all_legs_stance()){
+          std::cout<<"Need to shift the COM here"<< std::endl;
+          // Ensure all gains are back to their default and that
+          // everything is marked as in stance.
+          for (auto& leg_R : legs_R) {
+            leg_R.kp_N_m = config_.default_kp_N_m;
+            leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+            leg_R.kp_scale = {};
+            leg_R.kd_scale = {};
+            leg_R.stance = 1.0;
+          }
+          
+          Eigen::Matrix3d rotation_matrix = Eigen::AngleAxisd(base::Radians(8.0), Eigen::Vector3d::UnitY()).toRotationMatrix()*Eigen::AngleAxisd(base::Radians(2.0), Eigen::Vector3d::UnitX()).toRotationMatrix();
+          desired_RB.pose.so3() = rotation_matrix;
+          desired_RB.pose.translation() = Eigen::Vector3d(-0.05,-0.03,0);
+
+          //Can only compare wrt to position. SE3 or SO3 couldn't compare the whole matrix
+          if(std::abs(status_.state.robot.frame_RB.pose.translation().norm() - desired_RB.pose.translation().norm()) < 1e-3){
+            status_.state.leg_onemove.mode = M::kSwingOneLeg;
+            old_control_log_->legs_R = legs_R;
+            for (const auto& leg_B : status_.state.legs_B){
+              legs_R[leg_B.leg].position = status_.state.robot.frame_RB.pose * leg_B.position;
+              std::cout<< "pose in R frame: " << legs_R[leg_B.leg].position[0]<<" "<<legs_R[leg_B.leg].position[1]<<" "<<legs_R[leg_B.leg].position[2] <<std::endl;
+            }
+            for (int i=0 ; i<4; i++){   
+                std::cout<< "pose in B frame: " << status_.state.legs_B[i].position[0]<<" "<<status_.state.legs_B[i].position[1]<<" "<<status_.state.legs_B[i].position[2] <<std::endl;
+
+            }
+          } 
+          ControlLegs_R(std::move(legs_R), desired_RB);
+          break;
+
+        }
+        else{
+          DoControl_ZeroVelocity();
+          break;
+        }
+      }
+
       case M::kSwingOneLeg:{
-                            for (auto &leg_R : legs_R)
-                            {
-                              if(leg_R.leg_id == config_.leg_onemove.id)
-                              {
-                                std::cout << "We have to move one leg here" <<std::endl;
-                                leg_R.kp_N_m = config_.default_kp_N_m;
-                                leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                                
-                                leg_R.leg_id = config_.leg_onemove.id;
-                                leg_R.power = true;
-                                leg_R.position = config_.leg_onemove.pose_foot;
-                                //std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0] <<std::endl;
-                                leg_R.velocity = {0.1,0.1,0.1};
-                                leg_R.stance = 0.0;
-                                
-                              }
-                            }
-                            // QuadrupedContext::MoveOptions move_options;
-                            // move_options.override_acceleration = config_.stand_up.acceleration;
-                            // std::cout<< "still here." << std::endl;
-                            // const bool done = context_->MoveLegsFixedSpeed(
-                            //                         &legs_R, config_.stand_up.velocity/10, [&]()
-                            //                         {
-                            //                           std::vector<std::pair<int, base::Point3D>> result;
-                            //                           for (const auto &leg : context_->legs)
-                            //                           {
-                            //                             if(leg.leg == config_.leg_onemove.id)
-                            //                             {
-                            //                               base::Point3D pose = config_.leg_onemove.pose_foot;
-                            //                               std::cout<< "position inside condition" << pose[0] << std::endl;
-                            //                               //pose.z() = config_.stand_height;
-                            //                               result.push_back(std::make_pair(leg.leg, pose));
+        std::cout<<"Lift leg here with controlled velocity. Also take into account for how much time in this postition"<< std::endl;
+        
+        for (auto& leg_R : legs_R){
+          if(leg_R.leg_id == config_.leg_onemove.id){
+            std::cout<<"not coming here: "<< std::endl;
+            auto kp = config_.walk.swing_damp_kp; //kp scaling same as walking
+            auto kd = config_.walk.swing_damp_kd; //kd scaling same as walking
+            leg_R.kp_scale = {kp, kp, kp};
+            leg_R.kd_scale = {kd, kd, kd};
+            leg_R.power = true;
+            leg_R.position = config_.leg_onemove.pose_foot;  // end-effector position
+            std::cout<< "pose from config file: " << config_.leg_onemove.pose_foot[0]<<" "<<config_.leg_onemove.pose_foot[1]<<" "<<config_.leg_onemove.pose_foot[2] <<std::endl;
+            leg_R.velocity = {0.2,0.2,0.2};
+            leg_R.force_N = base::Point3D();
+            leg_R.stance = 0.0;
+          }
+          else{
+            auto kp = config_.default_kp_N_m; //kp scaling same as walking
+            auto kd = config_.default_kd_N_m_s;
+            leg_R.kp_N_m = kp;
+            leg_R.kd_N_m_s = kd;
+            leg_R.kp_scale = {};
+            leg_R.kd_scale = {};
+            leg_R.power = true;
+            leg_R.stance = 1.0;
+          }
+        }
+        QuadrupedContext::MoveOptions move_options;
+        move_options.override_acceleration =
+            config_.stand_up.acceleration;
 
-                            //                             }
-                            //                             else{
-                            //                               base::Point3D pose = leg.stand_up_R;
-                            //                               pose.z() = config_.stand_height;
-                            //                               result.push_back(std::make_pair(leg.leg, pose));
-
-                            //                             }  
-                            //                           }
-                            //                           return result;
-                            //                         }(),
-                            //                         move_options);
-                            //std::cout<<"done or not: " << done <<std::endl;
-                            bool done = false;
-                            for (auto &leg_R : legs_R){
-                              if(leg_R.leg_id == config_.leg_onemove.id){
-                                  std::cout << "difference 1 : "<< leg_R.position[2] - status_.state.leg_onemove.position[2] <<std::endl;
-                                  if (std::abs(leg_R.position[2] - status_.state.leg_onemove.position[2]) <= 0.01){
-                                    std::cout << "difference 2 : "<< leg_R.position[2] - status_.state.leg_onemove.position[2] <<std::endl;
-                                    done = true;
-                                  }
-                                    
-                                  std::cout << "checking here" << done << std::endl;
-                              }
-                            }
-                            if(done){
-                                std::cout<< "change to new state \n\n\n\n\n"<< std::endl;
-                                std::cout << "Mode in leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
-                                old_control_log_->legs_R = legs_R;
-                                status_.state.leg_onemove.mode = M::kDone; 
-                            }
-                            
-                            break;
-                          }
-      case M::kDone: 
-                    {
-                      std::cout << "Mode in leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
-                      
-                      //status_.mode = QM::kZeroVelocity;
-                      //std::cout << "Done phase:" << config_.stand_up.velocity/10 << std::endl;
-
-                      // for (auto &leg_R : legs_R)
-                      // {
-                      //   if(leg_R.leg_id == config_.leg_onemove.id)
-                      //   {
-                      //     //std::cout << "We have to move back to previous position" <<std::endl;
-                      //     leg_R.kp_N_m = config_.default_kp_N_m;
-                      //     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                      //     leg_R.leg_id = config_.leg_onemove.id;
-                      //     leg_R.power = true;
-                      //     leg_R.position = config_.leg_onemove.pose_R;
-                      //     std::cout<< "pose from config file back to position: " << config_.leg_onemove.pose_R[2] <<std::endl;
-                      //     leg_R.velocity = base::Point3D();
-                      //     leg_R.stance = 1.0;
-                      //     //legs_R.push_back(leg_R);
-                      //   }
-                      //   else{
-                      //     //std::cout << "Leg id: " << leg_R.leg_id << std::endl;
-                      //     leg_R.kp_N_m = config_.default_kp_N_m;
-                      //     leg_R.kd_N_m_s = config_.default_kd_N_m_s;
-                      //     leg_R.kp_scale = {10,10,10};
-                      //     leg_R.kd_scale = {20,20,20};
-                      //     leg_R.stance = 1.0;
-                      //     leg_R.landing = false;
-                      //     // We don't want to be moving laterally when in rest, just up
-                      //     // and down.
-                      //     leg_R.velocity.head<2>() = Eigen::Vector2d(0., 0.);
-                      //   }
-                        
-                      // }
-                      // QuadrupedContext::MoveOptions move_options;
-                      // move_options.override_acceleration = config_.stand_up.acceleration;
-
-                      // const bool done = context_->MoveLegsFixedSpeed(
-                      //                                                 &legs_R, config_.stand_up.velocity, [&]()
-                      //                                                 {
-                      //                                                   std::vector<std::pair<int, base::Point3D>> result;
-                      //                                                   for (const auto &leg : context_->legs)
-                      //                                                   {
-                      //                                                     base::Point3D pose = leg.stand_up_R;
-                      //                                                     pose.z() = config_.stand_height;
-                      //                                                     result.push_back(std::make_pair(leg.leg, pose));
-                      //                                                   }
-                      //                                                   return result;
-                      //                                                 }(),
-                      //                                                 move_options);
-                      
-                      // if(done){
-                      //           std::cout<< "go back to rest state"<< std::endl;
-                      //           DoControl_Rest();
-                      //       }
-                      // break;
-                    }
-                    
+        const bool done = context_->MoveLegsFixedSpeed(
+            &legs_R, 0.2, [&]() {
+              std::vector<std::pair<int, base::Point3D>> result;
+              for (const auto& leg : context_->legs) {
+                base::Point3D pose;
+                if(leg.leg == config_.leg_onemove.id){
+                  pose = config_.leg_onemove.pose_foot;
+                }
+                else{
+                  pose = leg.stand_up_R; 
+                }
+                result.push_back(std::make_pair(leg.leg, pose));
+              }
+              return result;
+            }(),
+            move_options);
+        
+        // if (done) {
+        //   status_.state.leg_onemove.mode = M::kDone;
+        // }
+        auto desired_RB = context_->LevelDesiredRB();
+        desired_RB.pose.so3() =
+            current_command_.rest.offset_RB.so3() * desired_RB.pose.so3();
+        desired_RB.pose.translation() +=
+            current_command_.rest.offset_RB.translation();
+        ControlLegs_R(std::move(legs_R),desired_RB);
+        break;
+      }
+      case M::kDone: {
+        std::cout<<"Place the leg back to its place" <<std::endl;
+        DoControl_Rest();
+        break;
+      }
       default:
         break;
-    }
-    auto desired_RB = context_->LevelDesiredRB();
-    desired_RB.pose.so3() = current_command_.rest.offset_RB.so3() * desired_RB.pose.so3();
-    desired_RB.pose.translation() += current_command_.rest.offset_RB.translation();
-
-    ControlLegs_R(std::move(legs_R), desired_RB);
+    }  
+    
+      
   }
 
   void DoControl_StandUp() {
@@ -1887,6 +1849,7 @@ class QuadrupedControl::Impl {
   void DoControl_Walk() {
     auto result = QuadrupedTrot(&*context_, old_control_log_->legs_R);
     ControlLegs_R(std::move(result.legs_R), result.desired_RB);
+
   }
 
   void DoControl_Backflip() {
@@ -2504,6 +2467,7 @@ class QuadrupedControl::Impl {
 
   // For control timing of trajectory
   double time_trajectory;
+  bool traj_finished = false;
   double temp_time = 0;
   std::vector<Eigen::VectorXd> y_vec;
   std::vector<Eigen::VectorXd> yd_vec;

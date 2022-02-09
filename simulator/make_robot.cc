@@ -182,12 +182,11 @@ dd::SkeletonPtr MakeFloor() {
   auto shape_node = body->createShapeNodeWith<
     dd::VisualAspect, dd::CollisionAspect, dd::DynamicsAspect>(box);
   shape_node->getVisualAspect()->setColor(dart::Color::Black());
-
   // Put the body into position.
   Eigen::Isometry3d tf = Eigen::Isometry3d::Identity();
   tf.translation() = Eigen::Vector3d(0., 0., -0.5 * floor_height);
   body->getParentJoint()->setTransformFromParentBodyNode(tf);
-
+  
   return floor;
 }
 

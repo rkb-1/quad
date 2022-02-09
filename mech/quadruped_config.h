@@ -67,13 +67,15 @@ struct QuadrupedConfig {
 
   //Added new structure
   struct Leg_onemove {
-    int id = 0;
-    base::Point3D pose_foot = {0.38, -0.205, 0.010}; 
-    base::Point3D pose_R = {0.200, -0.160, 0.23};
+    int id = 1;
+    int time_s = 5;
+    base::Point3D pose_foot = {0.25, 0.205, 0.030};
+    base::Point3D pose_R = {0.200, 0.160, 0.23};
     
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(id));
+      a->Visit(MJ_NVP(time_s));
       a->Visit(MJ_NVP(pose_foot));
       a->Visit(MJ_NVP(pose_R));
     }
@@ -317,6 +319,7 @@ struct QuadrupedConfig {
     a->Visit(MJ_NVP(joints));
     a->Visit(MJ_NVP(rezero_threshold_deg));
     a->Visit(MJ_NVP(legs));
+    a->Visit(MJ_NVP(leg_onemove));
     a->Visit(MJ_NVP(bounds));
     a->Visit(MJ_NVP(mass_kg));
     a->Visit(MJ_NVP(leg_mass_kg));

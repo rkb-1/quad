@@ -530,6 +530,7 @@ class Application {
           if (this._mode == "pronk") { return "jump"; }
           if (this._mode == "traj_replay") { return "traj_replay"; }
           if (this._mode == "leg") { return "leg"; }
+          if (this._mode == "backflip") { return "backflip"; }
           return "zero_velocity";
         })(),
       },
@@ -603,6 +604,7 @@ class Application {
         if (cur == "jump") { return "pronk" };
         if (cur == "traj_replay") { return "traj_replay" };
         if (cur == "leg") { return "leg" };
+        if (cur == "backflip") { return "backflip" };
         return "stop";
       })();
       for (const mode_check  of document.getElementsByClassName("mode_check")) {
@@ -626,6 +628,7 @@ class Application {
         if (cur == "jump") { return "pronk"; }
         if (cur == "traj_replay") { return "traj_replay" };
         if (cur == "leg") { return "leg" };
+        if (cur == "backflip") { return "backflip" };
         return cur;
       })() + ')';
     }

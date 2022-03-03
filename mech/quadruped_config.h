@@ -71,13 +71,16 @@ struct QuadrupedConfig {
     int time_s = 5;
     base::Point3D pose_foot = {0.25, 0.205, 0.030};
     base::Point3D pose_R = {0.200, 0.160, 0.23};
-    
+    base::Point3D com_shift = {-0.1,-0.03,0};
+    bool friendly_gesture = true;
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(id));
       a->Visit(MJ_NVP(time_s));
+      a->Visit(MJ_NVP(com_shift));
       a->Visit(MJ_NVP(pose_foot));
       a->Visit(MJ_NVP(pose_R));
+      a->Visit(MJ_NVP(friendly_gesture));
     }
   };
 

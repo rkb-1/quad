@@ -81,7 +81,7 @@ def main():
     df_command = pd.DataFrame({'t[s]': time})
     df_command['command_vel'] = command_vel
     df_command['command_omega'] = command_omega
-    df_command.to_csv('quad_command_data_3mps_inside_zero_torque.csv')
+    df_command.to_csv('quad_command_data_stand_up.csv')
     
     # Joints control commands
 
@@ -157,7 +157,7 @@ def main():
                             "q_bl1", "qd_bl1","qdd_bl1","Tau_bl1","q_bl2", "qd_bl2","qdd_bl2","Tau_bl2","q_bl3", "qd_bl3","qdd_bl3","Tau_bl3",
                             "q_br1", "qd_br1","qdd_br1","Tau_br1","q_br2", "qd_br2","qdd_br2","Tau_br2","q_br3", "qd_br3","qdd_br3","Tau_br3"]
     df = df.reindex(columns=column_names)
-    df.to_csv('quad_control_data_3mps_inside_zero_torque.csv')
+    df.to_csv('quad_control_data_stand_up.csv')
     
     # Joints status output
     
@@ -235,7 +235,7 @@ def main():
     # print(df_status.head())
     df_status = df_status.reindex(columns=column_names)
     # print(df_status.head())
-    df_status.to_csv('quad_status_data_3mps_inside_zero_torque.csv')
+    df_status.to_csv('quad_status_data_stand_up.csv')
     
     # ## Legs position, velocity and force data in x,y,and z direction
 

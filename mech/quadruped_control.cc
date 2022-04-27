@@ -1065,7 +1065,7 @@ class QuadrupedControl::Impl {
     yd_vec.clear();
     Tau_vec.clear();
     //std::string filename = "trajectory_file.csv";
-    std::string filename = "motion_trot.csv";
+    std::string filename = "modified_traj.csv";
     io::CSVReader<36> in(filename);
 
     in.read_header(io::ignore_extra_column,
@@ -1119,6 +1119,16 @@ class QuadrupedControl::Impl {
         out_joint.angle_deg = y[j] * 180.0 / 3.14;
         out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
         out_joint.torque_Nm = Tau[j];
+        // if(j == 3 || j== 6 || j== 9 || j== 12){
+        //   out_joint.kp_scale = 2;  // 200*2
+        //   out_joint.kd_scale = 10;  // 6 * 10
+        // } 
+        // // shoulder defualt kp = 200, else kp = 50
+        // else{
+        //   out_joint.kp_scale = 4;   //50*4 
+        //   out_joint.kd_scale = 5;  // 6*5
+        // }
+        
         //out_joint.torque_Nm = 0.0;
         // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
         out_joints.push_back(out_joint);
@@ -1132,9 +1142,9 @@ class QuadrupedControl::Impl {
         QC::Joint out_joint;
         out_joint.id = j + 1;
         out_joint.power = true;
-        out_joint.angle_deg = 0;
-        out_joint.velocity_dps = 0;
-        out_joint.torque_Nm = 0;
+        out_joint.angle_deg = {};
+        out_joint.velocity_dps = {};
+        out_joint.torque_Nm = {};
         //out_joint.torque_Nm = 0.0;
         // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
         out_joints.push_back(out_joint);
@@ -1143,7 +1153,8 @@ class QuadrupedControl::Impl {
       std::cout << "trajectory finished " << std::endl;
       temp_time = 0;
       traj_finished = true;
-      //DoControl_Stopped();
+      // DoControl_Stopped();
+      DoControl_ZeroVelocity();
     }
   }
 
@@ -1595,6 +1606,380 @@ class QuadrupedControl::Impl {
   }
 
   void DoControl_Jump() {
+
+
+    std::vector<QC::Joint> joints;
+    for (const auto& leg : context_->legs) {
+      QC::Joint joint;
+      joint.power = true;
+      joint.angle_deg = std::numeric_limits<double>::quiet_NaN();
+      joint.velocity_dps = 10;
+      joint.max_torque_Nm = 16;
+      joint.kp_scale = 1;
+      joint.kd_scale = 1;
+
+      auto add_joint = [&](int id, double angle_deg, double velocity_dps = 10, double kp_scale = 1, double kd_scale =1) {
+        joint.id = id;
+        joint.stop_angle_deg = angle_deg;
+        joint.velocity_dps = velocity_dps;
+        joint.kp_scale = kp_scale;
+        joint.kd_scale = kd_scale;
+        joints.push_back(joint);
+      };
+
+      auto add_stopped_joint = [&](int id, bool power = true, double kp_scale = 1, double kd_scale =1) {
+        joint.id = id;
+        joint.power = power;
+        joint.velocity_dps = 0.0;
+        joint.stop_angle_deg = {};
+        joint.kp_scale = kp_scale;
+        joint.kd_scale = kd_scale;
+        joints.push_back(joint);
+      };
+      std::cout<< "status_.state.stand_up.prepositioning_stage: "<<status_.state.stand_up.prepositioning_stage <<std::endl; 
+      switch (status_.state.stand_up.prepositioning_stage) {
+        case 0: {
+          if(leg.leg == 2){
+            add_joint(leg.config.ik.shoulder.id,  5);
+            add_joint(leg.config.ik.femur.id,   57);
+            add_joint(leg.config.ik.tibia.id,   -138);
+          }
+          if(leg.leg == 3){
+            add_joint(leg.config.ik.shoulder.id,  -5);
+            add_joint(leg.config.ik.femur.id,     60);
+            add_joint(leg.config.ik.tibia.id,   -140);
+          }
+          else if (leg.leg == 0 || leg.leg == 1){
+            add_stopped_joint(leg.config.ik.shoulder.id);
+            add_stopped_joint(leg.config.ik.femur.id);
+            add_stopped_joint(leg.config.ik.tibia.id);
+          }
+          break;
+        }
+        case 1: {
+          if(leg.leg == 2){
+            add_stopped_joint(leg.config.ik.shoulder.id);
+            add_joint(leg.config.ik.femur.id,  150, 150, 1.5, 1.5);
+            add_stopped_joint(leg.config.ik.tibia.id,   -138);
+          }
+          if(leg.leg == 3){
+            add_stopped_joint(leg.config.ik.shoulder.id, true, 0.5, 20);
+            add_joint(leg.config.ik.femur.id,     150, 150, 1.5, 1.5);
+            add_stopped_joint(leg.config.ik.tibia.id, true, 0.5, 20);
+          }
+          else if (leg.leg == 0 || leg.leg == 1){
+            add_stopped_joint(leg.config.ik.shoulder.id);
+            add_stopped_joint(leg.config.ik.femur.id);
+            add_stopped_joint(leg.config.ik.tibia.id);
+          }
+          break;
+        }
+        case 2: {
+          // And finally put the shoulders back into place.
+          add_joint(leg.config.ik.shoulder.id,
+                    leg.resolved_stand_up_joints.shoulder_deg);
+          add_joint(leg.config.ik.femur.id,
+                    leg.resolved_stand_up_joints.femur_deg);
+          add_joint(leg.config.ik.tibia.id,
+                    leg.resolved_stand_up_joints.tibia_deg);
+          break;
+        }
+      }
+    }
+
+    // See if we can advance to the next prepositioning stage.
+    bool all_done = true;
+    for (const auto& joint : joints) {
+      const auto& joint_state = context_->GetJointState(joint.id);
+      // std::cout << "Joint state: " << joint_state.angle_deg << " ; Joint command: " << joint.angle_deg << " ; joint id: "<< joint.id << " ; All done: " << all_done << std::endl;
+      if (!!joint.stop_angle_deg && std::abs(joint.stop_angle_deg.value_or(0.0) - joint_state.angle_deg) > 5) {
+        all_done = false;
+      }
+    }
+    if (all_done) {
+      std::cout<<"Have come here. "<< std::endl;
+      status_.state.stand_up.prepositioning_stage =
+          std::min(status_.state.stand_up.prepositioning_stage + 1, 2);
+    }
+
+    ControlJoints(joints);
+  }
+  
+  
+  
+  void DoControl_Jump_trial() {
+     using JM = QuadrupedState::Jump::Mode;
+
+    // We can only accelerate in one of the states where our legs are
+    // actually in contact with the ground.
+    const bool in_contact = [&]() {
+      switch (status_.state.jump.mode) {
+        case JM::kPushing:
+        case JM::kLanding: {
+          return true;
+        }
+        // We technically are in contact w/ the ground during
+        // lowering, but since we can only enter here with zero
+        // velocity, we'll just wait until the first jump before
+        // starting to move.
+        case JM::kLowering:
+        case JM::kRetracting:
+        case JM::kFalling:
+        case JM::kDone: {
+          return false;
+        }
+      }
+    }();
+    if (in_contact) {
+      UpdateCommandedR();
+    }
+
+    auto& js = status_.state.jump;
+    std::optional<JM> previous_jump_mode;
+
+    while (true) {
+      // We should only loop here if our jumping state is different
+      // from what it was the previous time.
+      auto legs_R = old_control_log_->legs_R;
+
+      if (!!previous_jump_mode) {
+        MJ_ASSERT(status_.state.jump.mode != *previous_jump_mode);
+      }
+      previous_jump_mode = status_.state.jump.mode;
+
+      // Default all our legs to the standard cartesian kp.
+      for (auto& leg_R : legs_R) {
+        leg_R.kp_N_m = config_.default_kp_N_m;
+        leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+
+        // TODO: This is kind of a hack.  Ideally, we wouldn't have to
+        // fiddle with the servo gains during a jump, and could just
+        // use cartesian gains.  However, our current IK model seems
+        // to have a large mismatch with reality for these jumps, and
+        // we rely on the agressive servo controls to compensate.
+        const auto kp = config_.jump.kp_scale;
+        leg_R.kp_scale = base::Point3D(kp, kp, kp);
+        const auto kd = config_.jump.kd_scale;
+        leg_R.kd_scale = base::Point3D(kd, kd, kd);
+      }
+
+      switch (status_.state.jump.mode) {
+        case JM::kLowering: {
+          // Move legs to take into account R rates.
+          context_->MoveLegsForR(&legs_R);
+
+          // Lower all legs until they reach the lower_height.
+          const bool done = context_->MoveLegsFixedSpeedZ(
+              all_leg_ids_,
+              &legs_R,
+              config_.jump.lower_velocity,
+              0.07);
+          if (done) {
+            status_.state.jump.mode = JM::kPushing;
+            continue;
+          }
+          std::cout<<"Leg 0 status: \n"<<status_.state.legs_B[0].position << std::endl;
+          std::cout<<"Leg 1 status: \n"<<status_.state.legs_B[1].position << std::endl;
+          std::cout<<"Leg 2 status: \n"<<status_.state.legs_B[2].position << std::endl;
+          std::cout<<"Leg 3 status: \n"<<status_.state.legs_B[3].position << std::endl;
+          auto desired_RB = context_->LevelDesiredRB();
+          desired_RB.pose.translation() = Eigen::Vector3d(-0.15,0,0);
+          ControlLegs_R(std::move(legs_R),desired_RB);
+          break;
+        }
+        case JM::kPushing: {
+          std::cout<<"pitching" << std::endl;
+          QuadrupedContext::MoveOptions move_options;
+          move_options.override_acceleration = 200;
+          const bool done = context_->MoveLegsFixedSpeed(&legs_R, 100, [&]() {
+                  std::vector<std::pair<int, base::Point3D>> result;
+                  for (const auto& leg : context_->legs) {
+                    base::Point3D pose;
+                    if(leg.leg == 0 ){
+                      pose = Eigen::Vector3d(0.18, -0.18, 0.20);
+                      pose.z() = 0.20;
+                    }
+                    if(leg.leg == 1 ){
+                      pose = Eigen::Vector3d(0.18, 0.18, 0.20);
+                      pose.z() = 0.20;
+                    }
+                    if(leg.leg == 2 ){
+                      pose = Eigen::Vector3d(-0.16, -0.2, 0.07);
+                      pose.z() = 0.07;
+                    }
+                    if(leg.leg == 3 ){
+                      pose = Eigen::Vector3d(-0.16, 0.2, 0.07);
+                      pose.z() = 0.07;
+                    }
+                    result.push_back(std::make_pair(leg.leg, pose));
+                  }
+                  return result;
+                }(),
+                move_options);
+          auto desired_RB = context_->LevelDesiredRB();
+          desired_RB.pose.translation() = Eigen::Vector3d(-0.15,0,0);
+          desired_RB.pose.so3() = Eigen::AngleAxisd(base::Radians(60.0), Eigen::Vector3d::UnitY()).toRotationMatrix();
+          ControlLegs_R(std::move(legs_R),desired_RB);
+          // counter_LiftLeg += 1;
+          // if (counter_LiftLeg <= 2.5*400 ){
+          //   ControlLegs_R(std::move(legs_R),desired_RB);
+          // }
+          // else{
+          //   counter_LiftLeg = 0;
+          //   status_.state.jump.mode = JM::kRetracting;
+          // }
+          break;
+        }
+        case JM::kRetracting: {
+          std::cout<<"lift leg" << std::endl;
+          // QuadrupedContext::MoveOptions move_options;
+          // move_options.override_acceleration = config_.stand_up.acceleration;
+          // const bool done = context_->MoveLegsFixedSpeed(&legs_R, 0.5, [&]() {
+          //         std::vector<std::pair<int, base::Point3D>> result;
+          //         for (const auto& leg : context_->legs) {
+          //           base::Point3D pose;
+          //           if(leg.leg == 0){
+          //             std::cout<<"here"<<std::endl;
+          //             pose = Eigen::Vector3d(0.18, -0.105, 0.11);
+          //           }
+          //           // if(leg.leg == 3){
+          //           //   pose = {0.1,-0.1,0.2};
+          //           // }
+          //           // else{
+          //           //   pose = leg.stand_up_R;
+          //           // }
+          //           result.push_back(std::make_pair(leg.leg, pose));
+          //         }
+          //         return result;
+          //       }(),
+          //       move_options);
+          // std::cout<<"I came out";
+          auto desired_RB = context_->LevelDesiredRB();
+          desired_RB.pose.translation() = Eigen::Vector3d(-0.15,0,0);
+          desired_RB.pose.so3() = Eigen::AngleAxisd(base::Radians(23.0), Eigen::Vector3d::UnitY()).toRotationMatrix();
+          ControlLegs_R(std::move(legs_R),desired_RB);
+         
+
+
+
+          // QuadrupedContext::MoveOptions move_options;
+          // move_options.override_acceleration =
+          //     config_.jump.retract_acceleration;
+          // const bool done = context_->MoveLegsFixedSpeed(
+          //     &legs_R,
+          //     config_.jump.retract_velocity,
+          //     MakeIdleLegs(),
+          //     move_options);
+
+          // if (done) {
+          //   js.mode = JM::kFalling;
+          //   for (auto& leg_R : legs_R) {
+          //     leg_R.landing = true;
+          //   }
+          //   // Loop around and do the falling behavior.
+          //   old_control_log_->legs_R = legs_R;
+          //   continue;
+          // }
+          break;
+        }
+        case JM::kFalling: {
+          // Keep the legs moving while falling so that relative
+          // velocity will be minimal when we do land.  We aren't trying
+          // to accelerate during this phase, so that should mostly work
+          // out.
+          context_->MoveLegsForR(&legs_R);
+
+          // Update our leg values that remain for this state.
+          for (auto& leg_R : legs_R) {
+            // We have different gains.
+            const auto kp = config_.jump.land_kp;
+            leg_R.kp_scale = base::Point3D(kp, kp, kp);
+            const auto kd = config_.jump.land_kd;
+            leg_R.kd_scale = base::Point3D(kd, kd, kd);
+
+            // And no velocity or acceleration.
+            leg_R.velocity = base::Point3D();
+            leg_R.acceleration = base::Point3D();
+          }
+
+          // Wait for our legs to be pushed up by a certain distance,
+          // which will indicate we have made contact with the ground.
+          const double average_height = Average(
+              status_.state.legs_B.begin(),
+              status_.state.legs_B.end(),
+              [](const auto& leg_B) {
+                return leg_B.position.z();
+              });
+          const double max_height = Max(
+              status_.state.legs_B.begin(),
+              status_.state.legs_B.end(),
+              [](const auto& leg_B) {
+                return leg_B.position.z();
+              });
+          // We require the average to be below a threshold, and for
+          // all legs to have made contact of some kind.
+          const double average_error =
+              average_height - config_.stand_height;
+          const double max_error =
+              max_height - config_.stand_height;
+          if (average_error < -config_.jump.land_threshold &&
+              max_error < -0.5 * config_.jump.land_threshold) {
+            js.mode = JM::kLanding;
+            js.acceleration = 0.0;
+            js.velocity = std::numeric_limits<double>::quiet_NaN();
+            // Loop around and start landing.
+            continue;
+          }
+          break;
+        }
+        case JM::kLanding: {
+          context_->MoveLegsForR(&legs_R);
+          for (auto& leg_R : legs_R) {
+            leg_R.stance = 1.0;
+          }
+
+          const bool done = SetLandingParameters(&legs_R);
+
+          if (done) {
+            // We are either done, or going to start jumping again.
+
+            // TODO(jpieper): Condition switching to rest on us having a
+            // sufficiently low R frame velocity.
+
+            if (js.command.repeat &&
+                current_command_.mode == QM::kJump) {
+              js.mode = JM::kPushing;
+
+              // First, latch in our current jump command.
+              if (!!current_command_.jump) {
+                status_.state.jump.command = *current_command_.jump;
+              }
+
+              // Then, for the pushing phase, switch back to whatever
+              // acceleration we were commanded.
+              js.acceleration = js.command.acceleration;
+              continue;
+            } else {
+              js.mode = JM::kDone;
+              break;
+            }
+          }
+          break;
+        }
+        case JM::kDone: {
+          DoControl_Rest();
+          return;
+        }
+      }
+
+      // If we make it here, then we haven't skipped back to redo our
+      // loop.  Thus we can actually emit our control.
+      //ControlLegs_R(std::move(legs_R), context_->LevelDesiredRB());
+      return;
+    }
+  }
+  
+  void DoControl_Jump_correct() {
     using JM = QuadrupedState::Jump::Mode;
 
     // We can only accelerate in one of the states where our legs are
@@ -1938,6 +2323,7 @@ class QuadrupedControl::Impl {
               &legs_R,
               config_.jump.lower_velocity,
               config_.backflip.lower_height);
+          
           if (done) {
             bs.mode = BM::kFrontPush;
             // Loop around and do the pushing behavior.
@@ -1965,7 +2351,8 @@ class QuadrupedControl::Impl {
           BackflipUpdateLegs(&legs_R, 0.0);
 
           if (bs.pitch_deg > config_.backflip.max_pitch_deg) {
-            bs.mode = BM::kBackPush;
+            //bs.mode = BM::kBackPush;
+            std::cout<<"Switch to push mode" << std::endl;
             // We'll get this next time.
             break;
           }
@@ -2109,7 +2496,7 @@ class QuadrupedControl::Impl {
       // Find the position in the 'rleg' frame.
       const Eigen::Vector3d leg_pose_B =
           pose_RB.inverse() * leg_R.position;
-     const Eigen::Vector3d leg_pose_rleg =
+      const Eigen::Vector3d leg_pose_rleg =
           pose_rlegp_B * leg_pose_B;
 
       if (leg_R.stance == 0.0) {

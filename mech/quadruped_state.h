@@ -99,7 +99,7 @@ struct QuadrupedState {
   };
 
   std::vector<Leg> legs_B;
-  Leg leg_onemove;
+  Leg leg_onemove, pee_behavior;
 
   // And finally, the robot level.
   struct Robot {
@@ -327,6 +327,8 @@ struct QuadrupedState {
   void Serialize(Archive* a) {
     a->Visit(MJ_NVP(joints));
     a->Visit(MJ_NVP(legs_B));
+    a->Visit(MJ_NVP(leg_onemove));
+    a->Visit(MJ_NVP(pee_behavior));
     a->Visit(MJ_NVP(robot));
 
     a->Visit(MJ_NVP(stand_up));

@@ -775,6 +775,10 @@ class QuadrupedControl::Impl {
 	      DoControl_Trajectory(y_vec[temp_time], yd_vec[temp_time], Tau_vec[temp_time]);  
 	      break;
       }
+      case QM::kPee: { 
+	      DoControl_Pee();  
+	      break;
+      }
       case QM::kNumModes: {
         mjlib::base::AssertNotReached();
       }
@@ -828,6 +832,7 @@ class QuadrupedControl::Impl {
       case QM::kJump:
       case QM::kWalk:
       case QM::kJointTraj:
+      case QM::kPee:
       case QM::kBackflip: {
         // This can only be done from certain configurations, where we
         // know all four legs are on the ground.  Modify our command
@@ -917,6 +922,9 @@ class QuadrupedControl::Impl {
         case QM::kFault:
         case QM::kZeroVelocity:{
           temp_time = 0;
+          counter_LiftLeg = 0;
+          status_.state.leg_onemove = {};
+          status_.state.pee_behavior = {};
           traj_finished = false;
           break;
         }
@@ -924,6 +932,10 @@ class QuadrupedControl::Impl {
         case QM::kJointTraj:
         case QM::kLeg: {
           status_.state.leg_onemove = {};
+          break;
+        }
+        case QM::kPee: {
+          status_.state.pee_behavior = {};
           break;
         }
         case QM::kNumModes: {
@@ -1064,10 +1076,15 @@ class QuadrupedControl::Impl {
     y_vec.clear();
     yd_vec.clear();
     Tau_vec.clear();
-    //std::string filename = "trajectory_file.csv";
-    std::string filename = "modified_traj.csv";
+    // std::string filename = "trajectories/traj_mu_08.csv";
+    // std::string filename = "trajectories/planarBalancing_full_interp_frameCorrected.csv";
+    // std::string filename = "trajectories/planarJumpOnPlace_full_interp_frameCorrected.csv";
+    // std::string filename = "trajectories/planarSalto_full_interp_frameCorrected.csv";
+    // std::string filename = "trajectories/control_test.csv";
+    std::string filename = "trajectories/traj_lasse.csv";
+    // std::string filename = "modified_traj.csv";
     io::CSVReader<36> in(filename);
-
+    
     in.read_header(io::ignore_extra_column,
                     "q_fl1", "qd_fl1", "Tau_fl1", "q_fl2", "qd_fl2", "Tau_fl2", "q_fl3", "qd_fl3", "Tau_fl3", // front left leg
                     "q_fr1", "qd_fr1", "Tau_fr1", "q_fr2", "qd_fr2", "Tau_fr2", "q_fr3", "qd_fr3", "Tau_fr3", // front right leg
@@ -1106,12 +1123,47 @@ class QuadrupedControl::Impl {
       Tau_vec.push_back(Tau);
     }
     time_trajectory = y_vec.size();
-    std::cout << "CSV file read." << time_trajectory << std::endl;
+    y_vec_initPose = y_vec[0];
+    std::cout << "CSV file read, total rows: " << time_trajectory << std::endl;
+    // std::cout << "Initial pose : " << y_vec_initPose << std::endl;
   }
 
+
+  float naive_lerp(float a, float b, float t){
+      return a + t * (b - a);
+  }
   void DoControl_Trajectory(Eigen::VectorXd y, Eigen::VectorXd yd, Eigen::VectorXd Tau){
-    if (temp_time <= time_trajectory && !traj_finished){
-      std::vector<QC::Joint> out_joints;
+    
+    std::vector<QC::Joint> out_joints;
+    if(!initPosition_reached && temp_time == 0 && !traj_finished)
+    {
+      for (uint j = 0; j < 12; j++) {
+        QC::Joint out_joint;
+        out_joint.id = j + 1;
+        out_joint.power = true;
+        out_joint.angle_deg = naive_lerp(status_.state.joints[j].angle_deg, y_vec_initPose[j] * 180.0 / 3.14, interpolate_time);
+        if(j == 3 || j== 6 || j== 9 || j== 12){
+          out_joint.kp_scale = 3;  // 200*2
+          out_joint.kd_scale = 1.5;  // 6 * 10
+        } 
+        // shoulder defualt kp = 200, else kp = 50
+        else{
+          out_joint.kp_scale = 4;   //50*4 
+          out_joint.kd_scale = 1.5;  // 6*5
+        }
+        out_joints.push_back(out_joint);
+        // std::cout<< "angle to go : " << status_.state.joints[j].id << " =>" << angleToGo << std::endl;
+      }
+      interpolate_time = interpolate_time + 0.0025;
+      if(interpolate_time > 3 ){ 
+        interpolate_time = 0.0; 
+        initPosition_reached = true;
+      }
+    }
+
+    if (temp_time < time_trajectory && !traj_finished && initPosition_reached){
+      
+      temp_time = temp_time + 1;
       for (uint j = 0; j < y.size(); j++){
         QC::Joint out_joint;
         out_joint.id = j + 1;
@@ -1119,43 +1171,34 @@ class QuadrupedControl::Impl {
         out_joint.angle_deg = y[j] * 180.0 / 3.14;
         out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
         out_joint.torque_Nm = Tau[j];
+
         // if(j == 3 || j== 6 || j== 9 || j== 12){
-        //   out_joint.kp_scale = 2;  // 200*2
-        //   out_joint.kd_scale = 10;  // 6 * 10
+        //   out_joint.kp_scale = 2.0;  // 200*2
+        //   out_joint.kd_scale = 2.0;  // 6 * 10
         // } 
         // // shoulder defualt kp = 200, else kp = 50
         // else{
-        //   out_joint.kp_scale = 4;   //50*4 
-        //   out_joint.kd_scale = 5;  // 6*5
+        //   out_joint.kp_scale = 2.0;   //50*4 
+        //   out_joint.kd_scale = 2.0;  // 6*5
         // }
-        
-        //out_joint.torque_Nm = 0.0;
         // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
         out_joints.push_back(out_joint);
-      }
-      ControlJoints(std::move(out_joints));
-      temp_time = temp_time + 1;
+      }  
     }
-    else{
-      std::vector<QC::Joint> out_joints;
+    if (temp_time >= time_trajectory || traj_finished){
       for (uint j = 0; j < y.size(); j++){
         QC::Joint out_joint;
         out_joint.id = j + 1;
         out_joint.power = true;
-        out_joint.angle_deg = {};
-        out_joint.velocity_dps = {};
-        out_joint.torque_Nm = {};
-        //out_joint.torque_Nm = 0.0;
-        // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
+        out_joint.zero_velocity = true;
         out_joints.push_back(out_joint);
       }
-      ControlJoints(std::move(out_joints));
       std::cout << "trajectory finished " << std::endl;
       temp_time = 0;
       traj_finished = true;
-      // DoControl_Stopped();
-      DoControl_ZeroVelocity();
+      initPosition_reached = false;
     }
+    ControlJoints(std::move(out_joints));
   }
 
   void DoControl_Leg()
@@ -1171,7 +1214,7 @@ class QuadrupedControl::Impl {
     
     using M = QuadrupedState::Leg::Mode;
     auto desired_RB = context_->LevelDesiredRB();
-    std::cout<<"leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
+    // std::cout<<"leg mode: "<< status_.state.leg_onemove.mode <<std::endl;
     switch (status_.state.leg_onemove.mode)
     {
       case M::kStanceAllLeg:{
@@ -1332,7 +1375,7 @@ class QuadrupedControl::Impl {
         ControlLegs_R(std::move(legs_R), desired_RB);
         
         if (done) {
-          //status_.state.leg_onemove.mode = {};//QuadrupedState::Leg::Mode::kStanceAllLeg;
+          // status_.state.leg_onemove.mode = {};//QuadrupedState::Leg::Mode::kStanceAllLeg;
           status_.mode = QM::kRest;
           //current_command_.mode = status_.mode;
           DoControl_Rest();
@@ -1346,7 +1389,135 @@ class QuadrupedControl::Impl {
     
       
   }
+  void DoControl_Pee()
+  {
+    //ClearDesiredMotion();
 
+    std::vector<QC::Leg> legs_R;
+
+    MJ_ASSERT(!old_control_log_->legs_R.empty());
+    // std::cout<<"In peeeeeeeeeeeeeeeee behavior" << std::endl;
+    int end_counter = config_.pee_behavior.time_s*400;  // seconds*controlfreq
+    legs_R = old_control_log_->legs_R;
+    
+    using M = QuadrupedState::Leg::Mode;
+    auto desired_RB = context_->LevelDesiredRB();
+    // std::cout<<"leg mode: "<< status_.state.pee_behavior.mode <<std::endl;
+    switch (status_.state.pee_behavior.mode)
+    {
+      case M::kStanceAllLeg:{
+        if(all_legs_stance()){
+          for (auto& leg_R : legs_R) {
+            leg_R.kp_N_m = config_.default_kp_N_m;
+            leg_R.kd_N_m_s = config_.default_kd_N_m_s;
+            leg_R.kp_scale = {};
+            leg_R.kd_scale = {};
+            leg_R.stance = 1.0;
+          }
+          status_.state.pee_behavior.mode = M::kSwingOneLeg;
+          ControlLegs_R(std::move(legs_R), desired_RB);
+          break;
+        }
+        else{
+          DoControl_ZeroVelocity();
+          break;
+        }
+      }
+
+      case M::kSwingOneLeg:{
+        // std::cout<<"Lift leg here with controlled velocity. Also take into account for how much time in this postition"<< std::endl;
+        
+        for (auto& leg_R : legs_R){
+          if(leg_R.leg_id == config_.pee_behavior.id){
+            // std::cout<<"not coming here: "<< std::endl;
+            auto kp = config_.walk.swing_damp_kp; //kp scaling same as walking
+            auto kd = config_.walk.swing_damp_kd; //kd scaling same as walking
+            leg_R.kp_scale = {kp, kp, kp};
+            leg_R.kd_scale = {kd, kd, kd};
+            leg_R.power = true;
+            leg_R.force_N = base::Point3D();
+            leg_R.stance = 0.0;
+          }
+          else{
+            auto kp = config_.default_kp_N_m; //kp scaling same as walking
+            auto kd = config_.default_kd_N_m_s;
+            leg_R.kp_N_m = kp;
+            leg_R.kd_N_m_s = kd;
+            leg_R.kp_scale = {};
+            leg_R.kd_scale = {};
+            leg_R.power = true;
+            leg_R.stance = 1.0;
+          }
+        }
+        
+        QuadrupedContext::MoveOptions move_options;
+        move_options.override_acceleration = config_.stand_up.acceleration;
+        if (counter_LiftLeg < end_counter){
+          const bool done = context_->MoveLegsFixedSpeed(
+              &legs_R, 0.2, [&]() {
+                std::vector<std::pair<int, base::Point3D>> result;
+                for (const auto& leg : context_->legs) {
+                  base::Point3D pose;
+                  if(leg.leg == config_.pee_behavior.id){
+                    pose = config_.pee_behavior.pose_foot;
+                  }
+                  else{
+                    pose = leg.stand_up_R; 
+                    pose.z() = config_.stand_height;
+                  }
+                  result.push_back(std::make_pair(leg.leg, pose));
+                }
+                return result;
+              }(),
+              move_options);
+          if(done)
+            counter_LiftLeg += 1;    
+        }
+        else{
+          status_.state.pee_behavior.mode = M::kDone;
+        }
+        auto desired_RB = context_->LevelDesiredRB();
+        desired_RB.pose.translation() = config_.pee_behavior.com_shift;
+        ControlLegs_R(std::move(legs_R),desired_RB);
+        break;
+      }
+      case M::kDone: {
+        counter_LiftLeg = 0 ;
+        
+        QuadrupedContext::MoveOptions move_options;
+        move_options.override_acceleration = config_.stand_up.acceleration;
+        const bool done = context_->MoveLegsFixedSpeed(
+          &legs_R, 0.15, [&]() {
+            std::vector<std::pair<int, base::Point3D>> result;
+            for (const auto& leg : context_->legs) {
+              base::Point3D pose;
+              pose = leg.stand_up_R; 
+              pose.z() = config_.stand_height;
+              result.push_back(std::make_pair(leg.leg, pose));
+            }
+            return result;
+          }(),
+          move_options);
+        auto desired_RB = context_->LevelDesiredRB();
+        desired_RB.pose.so3() = current_command_.rest.offset_RB.so3() * desired_RB.pose.so3();
+        desired_RB.pose.translation() += current_command_.rest.offset_RB.translation();
+
+        ControlLegs_R(std::move(legs_R), desired_RB);
+        
+        if (done) {
+          // status_.state.pee_behavior.mode = {};//QuadrupedState::Leg::Mode::kStanceAllLeg;
+          status_.mode = QM::kRest;
+          //current_command_.mode = status_.mode;
+          DoControl_Rest();
+        }
+       
+        break;
+      }
+      default:
+        break;
+    }  
+    
+  }
   void DoControl_StandUp() {
     // While we are standing up, the RB transform is always nil.
     status_.state.robot.frame_RB = {};
@@ -1605,7 +1776,7 @@ class QuadrupedControl::Impl {
     return result;
   }
 
-  void DoControl_Jump() {
+  void DoControl_Jump_trial_with_gains() {
 
 
     std::vector<QC::Joint> joints;
@@ -1979,7 +2150,7 @@ class QuadrupedControl::Impl {
     }
   }
   
-  void DoControl_Jump_correct() {
+  void DoControl_Jump() {
     using JM = QuadrupedState::Jump::Mode;
 
     // We can only accelerate in one of the states where our legs are
@@ -2915,8 +3086,11 @@ class QuadrupedControl::Impl {
 
   // For control timing of trajectory
   double time_trajectory;
-  bool traj_finished = false;
+  float interpolate_time = 0.0; //should lie in 0<t<1
+  bool traj_finished = false; 
+  bool initPosition_reached = false;
   double temp_time = 0;
+  Eigen::VectorXd y_vec_initPose, y_vec_finalPose;
   std::vector<Eigen::VectorXd> y_vec;
   std::vector<Eigen::VectorXd> yd_vec;
   std::vector<Eigen::VectorXd> Tau_vec;

@@ -85,6 +85,26 @@ struct QuadrupedConfig {
   };
 
   Leg_onemove leg_onemove;
+
+    //Added new structure
+  struct Pee_behavior {
+    int id = 3;
+    int time_s = 5;
+    base::Point3D pose_foot = {-0.18, 0.305, 0.080};
+    base::Point3D pose_R = {0.180, 0.205, 0.050};
+    base::Point3D com_shift = {0.08, -0.03, 0};
+    bool friendly_gesture = false;
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(id));
+      a->Visit(MJ_NVP(time_s));
+      a->Visit(MJ_NVP(com_shift));
+      a->Visit(MJ_NVP(pose_foot));
+      a->Visit(MJ_NVP(pose_R));
+      a->Visit(MJ_NVP(friendly_gesture));
+    }
+  };
+  Pee_behavior pee_behavior;
   ////////until here
   
   struct Bounds {
@@ -323,6 +343,7 @@ struct QuadrupedConfig {
     a->Visit(MJ_NVP(rezero_threshold_deg));
     a->Visit(MJ_NVP(legs));
     a->Visit(MJ_NVP(leg_onemove));
+    a->Visit(MJ_NVP(pee_behavior));
     a->Visit(MJ_NVP(bounds));
     a->Visit(MJ_NVP(mass_kg));
     a->Visit(MJ_NVP(leg_mass_kg));

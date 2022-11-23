@@ -27,7 +27,7 @@ namespace mjmech {
 namespace simulator {
 
 namespace {
-constexpr double kBodyMassKg = 5.0;
+constexpr double kBodyMassKg = 5.0; //5.0kg
 
 dd::BodyNodePtr MakeLegJoint(
     dd::SkeletonPtr skel,
@@ -77,7 +77,7 @@ dd::BodyNodePtr MakeLeg(dd::SkeletonPtr skel,
             Eigen::DiagonalMatrix<double, 3>(0, -.5, 0) * shoulder_pose_m},
       leg_config.pose_BG,
       {1.0, 0., 0.},
-      0.5);
+      0.5); //0.5
 
   auto femur = MakeLegJoint(
       skel,
@@ -93,7 +93,7 @@ dd::BodyNodePtr MakeLeg(dd::SkeletonPtr skel,
             Eigen::AngleAxis(M_PI, Eigen::Vector3d::UnitX())),
             leg_config.ik.shoulder.pose},
       {0., 1., 0.},
-      0.7);
+      0.7); //0.7
 
   auto tibia = MakeLegJoint(
       skel,
@@ -106,7 +106,7 @@ dd::BodyNodePtr MakeLeg(dd::SkeletonPtr skel,
                 0.0, 0.0, 0.5 * leg_config.ik.tibia.pose.z())},
       {Eigen::Quaterniond::Identity(), leg_config.ik.femur.pose},
       {0., 1., 0.},
-      0.3);
+      0.3); //0.3
 
   {
     // Do the foot.
@@ -125,7 +125,7 @@ dd::BodyNodePtr MakeLeg(dd::SkeletonPtr skel,
     foot_shape_node->getVisualAspect()->setColor(dart::Color::Black());
 
     dart::dynamics::Inertia inertia;
-    constexpr double foot_mass_kg = 0.1;
+    constexpr double foot_mass_kg = 0.1;  //0.1
     inertia.setMass(foot_mass_kg);
     inertia.setMoment(5 * shape->computeInertia(foot_mass_kg));
     foot->setInertia(inertia);

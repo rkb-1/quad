@@ -1,0 +1,192 @@
+<!-- Copyright 2019-2020 Josh Pieper, jjp@pobox.com -->
+<!-- Licensed under the Apache License, Version 2.0.  See LICENSE -->
+
+<html>
+  <head>
+    <meta charset="UTF-8"/>
+    <title>DFKI Quad Control</title>
+    <link rel="stylesheet" href="styles.css"/>
+  </head>
+  <body>
+    <script type="module" src="js/app.js"></script>
+
+    <div id="mode" class="toplevel">
+      <div id="bg"></div>
+      <div id="text">
+        <div id="mode_text" class="mode-main"></div>
+        <div id="mode_sub" class="mode-sub">(STANDUP)</div>
+      </div>
+      <input id="mode_expander" type="checkbox" class="toggle"/>
+      <label id="mode_expander_label" for="mode_expander" class="lbl-toggle"></label>
+      <div id="mode_select" class="collapsible-content-vert">
+        <input type="radio" id="stop" name="mode" class="mode_check" value="stop">
+        <label for="stop" class="mode_label">Stop</label>
+
+        <input type="radio" id="idle" name="mode" class="mode_check" value="idle">
+        <label for="idle" class="mode_label">Idle</label>
+
+        <!-- <input type="radio" id="walk" name="mode" class="mode_check" value="walk">
+        <label for="walk" class="mode_label">Walk</label> -->
+
+        <!-- <input type="radio" id="pronk" name="mode" class="mode_check" value="pronk">
+        <label for="pronk" class="mode_label">Pronk</label> -->
+        <!--added new drop-->
+        
+        <input type="radio" id="leg" name="mode" class="mode_check" value="leg">
+        <label for="leg" class="mode_label">Hello</label>
+        <input type="radio" id="pee" name="mode" class="mode_check" value="pee">
+        <label for="pee" class="mode_label">Pee</label>
+        <input type="radio" id="traj_replay" name="mode" class="mode_check" value="traj_replay">
+        <label for="traj_replay" class="mode_label">Replay</label>
+
+
+        <!-- <input type="radio" id="backflip" name="mode" class="mode_check" value="backflip">
+        <label for="backflip" class="mode_label">Backflip</label> -->
+        
+      </div>
+    </div>
+    <div id="fault_text_container" class="toplevel">
+      <div id="fault_text"></div>
+    </div>
+
+
+    <div id="power_off" class="toplevel">
+      <input type="button" id="power_off" value="Power Off / Clear Fault"></input>
+    </div>
+    
+  
+    <div id="command" class="toplevel">
+      <!-- <svg id="command_plot">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                  refX="0" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" />
+          </marker>
+        </defs>
+        <svg id="command_rotate" x="0%" y="0%" width="100%" height="8%">
+          <g fill="none" stroke="black" stroke-width="1.5px">
+            <line x1="45%" y1="30%" x2="30%" y2="30%"
+                  marker-end="url(#arrowhead)"/>
+            <line x1="55%" y1="30%" x2="70%" y2="30%"
+                  marker-end="url(#arrowhead)">
+          </g>
+          <g stroke="black" stroke-width="0.5" font-family="monospace"
+             text-anchor="middle">
+            <text x="50%" y="30%">0dps</text>
+            <text id="chart_rot_min" x="13%" y="30%">-30</text>
+            <text id="chart_rot_max" x="87%" y="30%">30</text>
+            <text x="23%" y="30%">Q</text>
+            <text x="77%" y="30%">E</text>
+          </g>
+          <rect id="desired_rot_cmd"
+                x="48%" y="50%" width="4%" height="45%"
+                fill="red" stroke="black" stroke-width="2"/>
+          <rect id="desired_rot_act"
+                x="49%" y="60%" width="2%" height="22%"
+                fill="blue" stroke="black" stroke-width="1"/>
+        </svg>
+        <svg id="command_translate" x="0%" y="10%" width="100%" height="92%">
+          <g fill="#e0e0e0" stroke="black" stroke-width="1.5px">
+            <rect x="12%" y="12%" width="76%" height="76%" stroke-width="3px"/>
+            <line x1="30%" y1="50%" x2="70%" y2="50%"/>
+            <line x1="50%" y1="30%" x2="50%" y2="70%"/>
+            <line x1="95%" y1="45%" x2="95%" y2="30%"
+                  marker-end="url(#arrowhead)" />
+            <line x1="95%" y1="55%" x2="95%" y2="70%"
+                  marker-end="url(#arrowhead)" />
+            <line x1="45%" y1="95%" x2="30%" y2="95%"
+                  marker-end="url(#arrowhead)" />
+            <line x1="55%" y1="95%" x2="70%" y2="95%"
+                  marker-end="url(#arrowhead)" />
+          </g>
+          <g stroke="black" stroke-width="0.5" font-family="monospace"
+             text-anchor="middle">
+            <text x="95%" y="50%">0m/s</text>
+            <text id="chart_x_max" x="95%" y="13%">0.5</text>
+            <text id="chart_x_min" x="95%" y="87%">-0.5</text>
+            <text x="95%" y="23%">W</text>
+            <text x="95%" y="77%">S</text>
+
+            <text id="chart_y_min" x="13%" y="95%">-0.2</text>
+            <text x="50%" y="95%">0m/s</text>
+            <text id="chart_y_max" x="87%" y="95%">0.2</text>
+            <text x="23%" y="95%">A</text>
+            <text x="77%" y="95%">D</text>
+          </g>
+          <rect id="desired_trans_cmd"
+                x="48%" y="48%" width="4%" height="4%"
+                fill="red" stroke="black" stroke-width="2"/>
+          <rect id="desired_trans_act"
+                x="49%" y="49%" width="2%" height="2%"
+                fill="blue" stroke="black" stroke-width="1.5"/>
+        </svg>
+      </svg> -->
+    </div>
+  
+    <div id="advanced_command_container" class="toplevel" style="display: none;">
+      <div id="advanced_command" style="display: none;" >
+        <!-- CHANGED HERE type= "checkbox" -->
+        <input id="advanced_expander_input" type="hidden" class="toggle">
+        <!-- <label id="advanced_expander_label" for="advanced_expander_input"
+               class="lbl-toggle">ADVANCED</label> -->
+        <div id="advanced_content_container" class="collapsible-content-vert">
+          <div class="bottom-advanced">
+            <select id="jump_acceleration">
+              <option value="4">4 m/s^2</option>
+              <option value="6" selected="true">6 m/s^2</option>
+              <option value="8">8 m/s^2</option>
+              <option value="10">10 m/s^2</option>
+            </select>
+            <!-- <label for="jump_acceleration">Jump Accel</label> -->
+            <select id="max_forward_speed">
+              <option value="0.5">0.5 m/s</option>
+              <option value="1" selected="true">1 m/s</option>
+              <option value="2">2 m/s</option>
+              <option value="3">3 m/s</option>
+            </select>
+            <!-- <label for="max_forward_speed">Max Forward Speed</label> -->
+            <select id="height_scale">
+              <option value="1.5">1.5</option>
+              <option value="2.0" selected="true">2.0</option>
+              <option value="2.5">2.5</option>
+              <option value="3.0">3.0</option>
+            </select>
+            <!-- <label for="height_scale">Step Height Scale</label> -->
+            <!-- <input type="checkbox" id="jump_repeat" checked="true">Repeat Jump</input>
+            <input type="checkbox" id="always_step">Always Step</input> -->
+            <!-- <input type="checkbox" id="disable_strafe" checked="true">Disable Strafe</input> -->
+            <!-- <input type="checkbox" id="maximize_flight">Maximize Flight</input>
+            <input type="checkbox" id="record_data">Record Data</input> -->
+            <!-- <input type="button" id="power_off" value="Power Off / Clear Fault"></input> -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="connected_state_container" class="toplevel">
+      <div id="connected_state">CONNECTED</div>
+    </div>
+    <div id="battery_container" class="toplevel">
+      <div id="battery_level"></div>
+      <div id="battery_text">__ V</div>
+    </div>
+    <div id="temperature_container" class="toplevel">
+      <div id="temperature_text">__ C</div>
+    </div>
+
+    <div id="current_json_command_container" class="toplevel" style="display: none;">
+      <div id="current_json_command"></div>
+    </div>
+
+    <div id="mstop_container" class="toplevel">
+      <div id="mstop">
+        <div id="mstop_text">STOP</div>
+      </div>
+    </div>
+
+    <img id="DFKI" src="/ulab.gif"/>
+
+    <div id="robot_state"></div>
+    <div id="current_joystick"></div>
+  </body>
+</html>

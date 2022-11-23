@@ -1,0 +1,24 @@
+INFO: Repository zlib instantiated at:
+  no stack (--record_rule_instantiation_callstack not enabled)
+Repository rule http_archive defined at:
+  /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/bazel_tools/tools/build_defs/repo/http.bzl:336:31: in <toplevel>
+WARNING: Download from https://zlib.net/zlib-1.2.11.tar.gz failed: class com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException GET returned 404 Not Found
+ERROR: An error occurred during the fetch of repository 'zlib':
+   java.io.IOException: Error downloading [https://zlib.net/zlib-1.2.11.tar.gz] to /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/zlib/zlib-1.2.11.tar.gz: GET returned 404 Not Found
+INFO: Repository org_llvm_clang instantiated at:
+  no stack (--record_rule_instantiation_callstack not enabled)
+Repository rule http_archive defined at:
+  /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/bazel_tools/tools/build_defs/repo/http.bzl:336:31: in <toplevel>
+INFO: Repository boost instantiated at:
+  no stack (--record_rule_instantiation_callstack not enabled)
+Repository rule http_archive defined at:
+  /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/bazel_tools/tools/build_defs/repo/http.bzl:336:31: in <toplevel>
+ERROR: /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/opencv/BUILD:38:14: @opencv//:core depends on @zlib//:zlib in repository @zlib which failed to fetch. no such package '@zlib//': java.io.IOException: Error downloading [https://zlib.net/zlib-1.2.11.tar.gz] to /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/zlib/zlib-1.2.11.tar.gz: GET returned 404 Not Found
+ERROR: Analysis of target '//gl:gl' failed; build aborted: Analysis failed
+INFO: Elapsed time: 2.122s
+INFO: 0 processes.
+FAILED: Build did NOT complete successfully (0 packages loaded, 0 targets configured)
+FAILED: Build did NOT complete successfully (0 packages loaded, 0 targets configured)
+    Fetching @ffmpeg; fetching
+    Fetching ...ffmpeg; Extracting /home/dfki.uni-bremen.de/rkumar/.cache/bazel/_bazel_rkumar/8406f524de7a93b780384c6f167cd493/external/ff\
+mpeg/ffmpeg-3.4.2.tar.xz

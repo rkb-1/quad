@@ -1,0 +1,63 @@
+
+if(!initPosition_reached && temp_time == 0)
+{
+    std::vector<QC::Joint> joints;
+    for (const auto& leg : context_->legs) {
+    QC::Joint joint;
+    joint.power = true;
+    joint.angle_deg = std::numeric_limits<double>::quiet_NaN();
+    joint.velocity_dps = 10;
+    joint.max_torque_Nm = 16;
+    joint.kp_scale = 1;
+    joint.kd_scale = 1;
+
+    auto add_joint = [&](int id, double angle_deg, double velocity_dps = 20, double kp_scale = 1, double kd_scale =1) {
+        joint.id = id;
+        joint.stop_angle_deg = angle_deg;
+        joint.velocity_dps = velocity_dps;
+        joint.kp_scale = kp_scale;
+        joint.kd_scale = kd_scale;
+        joints.push_back(joint);
+    };
+
+    auto add_stopped_joint = [&](int id, bool power = true, double kp_scale = 1, double kd_scale =1) {
+        joint.id = id;
+        joint.power = power;
+        joint.velocity_dps = 0.0;
+        joint.stop_angle_deg = {};
+        joint.kp_scale = kp_scale;
+        joint.kd_scale = kd_scale;
+        joints.push_back(joint);
+    };
+    // std::cout<< "input initial pose: "<< y[0] <<std::endl; 
+    for (uint j = 0; j < y.size(); j++){
+        // Some interpolations: to be achieved in 5s = 3 * 400 steps = 1200
+        // double joint_angle_interp = y[j] - 
+        add_joint(j + 1 , y[j] * 180.0 / 3.14 , {}, 2.5, 1.5);
+        std::cout << " joint id: " << j+1 <<"  joint angle " << y[j]  <<", joint angle in deg : " << y[j] * 180 /3.14 << std::endl;
+    }
+    ///////////TODO : Add control to go to intial position
+    
+
+
+    }
+
+    // See if we can advance to the next prepositioning stage.
+    bool all_done = true;
+    for (const auto& joint : joints) {
+    const auto& joint_state = context_->GetJointState(joint.id);
+    std::cout << "Joint state: " << joint_state.angle_deg << " ; Joint command: " << joint.angle_deg << " ; joint id: "<< joint.id << " ; All done: " << all_done << std::endl;
+    if (!!joint.stop_angle_deg && std::abs(joint.stop_angle_deg.value_or(0.0) - joint_state.angle_deg) > 5) {
+        all_done = false;
+        std::cout<< "changed to false" << std::endl;
+        temp_time = 0;
+    }
+    }
+    if (all_done) {
+    std::cout<<"Have come here. \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Have come here"<< std::endl;
+    std::abort();
+    initPosition_reached = true;
+    temp_time += 1;
+    }
+    ControlJoints(joints);
+}

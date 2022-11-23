@@ -18,11 +18,14 @@
 slapped in a unique pattern during the video recording.'''
 
 import argparse
+from ntpath import join
 import numpy as np
 import pylab
 import subprocess
 import tempfile
 import pandas as pd
+import os
+from datetime import datetime
 
 import scipy
 import scipy.signal as signal
@@ -47,50 +50,73 @@ def main():
     args = parser.parse_args()
 
     fr = file_reader.FileReader(args.log)
-
-
-    #IMU DATA 
-
-    imu_data = [(x.data.timestamp, x.data.accel_mps2[0]) #x-component of imu sensor
-                for x in fr.items(['imu'])]
-    start_s = imu_data[0][0]
-    size_s = imu_data[-1][0] - start_s
-
-    if args.log_start < 0:
-        args.log_start = size_s
-
-    time = np.array([x[0] - start_s for x in imu_data])
-    imu_x = np.array([x[1] for x in imu_data])
-    print("time: ", time)
     
-    imu_df = pd.DataFrame({'t[s]': time, 'imu_x': imu_x})
-    imu_df.to_csv('imu_df.csv')
+    dir_name = "analysis/lasse"
+    # os.mkdir(dir_name)
+
+    # #IMU DATA 
+
+    # imu_data = [(x.data.timestamp, x.data.accel_mps2[0]) #x-component of imu sensor
+    #             for x in fr.items(['imu'])]
+    # start_s = imu_data[0][0]
+    # size_s = imu_data[-1][0] - start_s
+
+    # if args.log_start < 0:
+    #     args.log_start = size_s
+
+    # time = np.array([x[0] - start_s for x in imu_data])
+    # imu_x = np.array([x[1] for x in imu_data])
+    # print("time: ", time)
+    
+    # imu_df = pd.DataFrame({'t[s]': time, 'imu_x': imu_x})
+    # imu_df.to_csv('imu_df.csv')
     
     #pylab.plot(orig_imu_x, orig_imu_y, linewidth=2, label='imu')
     #pylab.legend()
     #pylab.show()
     
     # Input commands
-    print("command data: ")
-    velocity = [(x.data.timestamp, x.data.v_R[0]) for x in fr.items(['qc_command'])] # translational velocity in mps
-    omega = [(x.data.timestamp, x.data.w_R[2]*np.pi/180.0) for x in fr.items(['qc_command'])] #rotational vel in dps, convert to rad/s
-    start_s = velocity[0][0]
-    time = np.array([x[0] - start_s for x in velocity])
-    command_vel = np.array([x[1] for x in velocity])
-    command_omega = np.array([x[1] for x in omega])
-    df_command = pd.DataFrame({'t[s]': time})
-    df_command['command_vel'] = command_vel
-    df_command['command_omega'] = command_omega
-    df_command.to_csv('quad_command_data_stand_up.csv')
+    # print("command data: ")
+    # velocity = [(x.data.timestamp, x.data.v_R[0]) for x in fr.items(['qc_command'])] # translational velocity in mps
+    # omega = [(x.data.timestamp, x.data.w_R[2]*np.pi/180.0) for x in fr.items(['qc_command'])] #rotational vel in dps, convert to rad/s
+    # start_s = velocity[0][0]
+    # time = np.array([x[0] - start_s for x in velocity])
+    # command_vel = np.array([x[1] for x in velocity])
+    # command_omega = np.array([x[1] for x in omega])
+    # df_command = pd.DataFrame({'t[s]': time})
+    # df_command['command_vel'] = command_vel
+    # df_command['command_omega'] = command_omega
+    # df_command.to_csv('quad_command_data_3mps_outside.csv')
     
     # Joints control commands
+    # i = 0
+    # for x in fr.items(['qc_control']):
+    #     # print(len([x.data.timestamp]))
+    #     if i == 3120:
+    #         print(i)
+    #         print(x.data.timestamp)
+    #         print(x.data.joints[0][3])
+    #     i+=1
+        
+    # i=0
+    # for x in fr.items(['qc_control']):
+    #     print(len([x.data.joints[0][3]]))
+    #     print(x.data.joints[0][3])
+    #     i+=1
+    #     # print(i)
+    #     print(x.data.timestamp)
+
 
     for i in range(12):
         j=0
-        joint_pos = [(x.data.timestamp, x.data.joints[i][j+3]*np.pi/180.0) for x in fr.items(['qc_control'])] #pos in degrees, convert to rad
-        joint_vel = [(x.data.timestamp, x.data.joints[i][j+4]*np.pi/180.0) for x in fr.items(['qc_control'])] #vel in dps, convert to rad/s
-        joint_tau = [(x.data.timestamp, x.data.joints[i][j+5]) for x in fr.items(['qc_control'])]
         print("data: ",i)
+        # joint_try = [(x.data.joints[0][3]) for x in fr.items(['qc_control'])]
+        # print(joint_try[0])
+        joint_pos = [(x.data.timestamp, x.data.joints[i][3]*np.pi/180.0) for x in fr.items(['qc_control'])] #pos in degrees, convert to rad
+        joint_vel = [(x.data.timestamp, x.data.joints[i][4]*np.pi/180.0) for x in fr.items(['qc_control'])] #vel in dps, convert to rad/s
+        joint_tau = [(x.data.timestamp, x.data.joints[i][5]) for x in fr.items(['qc_control'])]
+        
+        # print(joint_pos, joint_vel, joint_tau)
         start_s = joint_pos[0][0]
         time = np.array([x[0] - start_s for x in joint_pos])
         pos = np.array([x[1] for x in joint_pos])
@@ -157,7 +183,8 @@ def main():
                             "q_bl1", "qd_bl1","qdd_bl1","Tau_bl1","q_bl2", "qd_bl2","qdd_bl2","Tau_bl2","q_bl3", "qd_bl3","qdd_bl3","Tau_bl3",
                             "q_br1", "qd_br1","qdd_br1","Tau_br1","q_br2", "qd_br2","qdd_br2","Tau_br2","q_br3", "qd_br3","qdd_br3","Tau_br3"]
     df = df.reindex(columns=column_names)
-    df.to_csv('quad_control_data_stand_up.csv')
+    print(df.head())
+    df.to_csv(dir_name+'/control_test.csv')
     
     # Joints status output
     
@@ -235,12 +262,12 @@ def main():
     # print(df_status.head())
     df_status = df_status.reindex(columns=column_names)
     # print(df_status.head())
-    df_status.to_csv('quad_status_data_stand_up.csv')
+    df_status.to_csv(dir_name + '/status_test.csv')
     
-    # ## Legs position, velocity and force data in x,y,and z direction
+    ## Legs catesian position, velocity and force data in x,y,and z direction  
 
     # for i in range(4):
-    #     j=0
+    #     j=1
     #     _pos = [(x.data.timestamp, x.data.state.legs_B[i][j+1]) for x in fr.items(['qc_status'])] 
     #     _vel = [(x.data.timestamp, x.data.state.legs_B[i][j+2]) for x in fr.items(['qc_status'])] 
     #     _force = [(x.data.timestamp, x.data.state.legs_B[i][j+3]) for x in fr.items(['qc_status'])]
@@ -252,7 +279,7 @@ def main():
     #     vel = np.array([x[1] for x in _vel])
     #     force = np.array([x[1] for x in _force])
     #     stance = np.array([x[1] for x in _stance])
-        
+    #     print(pos.shape, vel.shape, force.shape, stance.shape)
     #     df_leg_pos = pd.DataFrame(pos, columns=['pos_x_leg{}'.format(i+1), 'pos_y_leg{}'.format(i+1), 'pos_z_leg{}'.format(i+1)])
     #     df_leg_vel = pd.DataFrame(vel, columns=['vel_x_leg{}'.format(i+1), 'vel_y_leg{}'.format(i+1), 'vel_z_leg{}'.format(i+1)])
     #     df_leg_force = pd.DataFrame(force, columns=['force_x_leg{}'.format(i+1), 'force_y_leg{}'.format(i+1), 'force_z_leg{}'.format(i+1)])
@@ -262,7 +289,7 @@ def main():
     #     temp = pd.concat([df_leg_pos,df_leg_vel,df_leg_force,df_leg_stance],axis=1)
     #     df_leg = pd.concat([df_leg, temp], axis = 1)
     # print(df_leg)
-    # df_leg.to_csv('status_legs_3mps_outside.csv')
+    # df_leg.to_csv(dir_name+'leg_measured_data.csv')
     
     
     
@@ -271,3 +298,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

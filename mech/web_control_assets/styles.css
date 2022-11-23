@@ -233,7 +233,13 @@ div.toplevel {
     height: 8vh;
     padding: 5px;
 }
-
+#DFKI {
+    position: fixed;
+    left: 10;
+    bottom: 10;
+    /* height: 8vh;
+    padding: 5px; */
+}
 #mstop_container {
     position: fixed;
     top: 0;

@@ -51,7 +51,7 @@ def main():
 
     fr = file_reader.FileReader(args.log)
     
-    dir_name = "analysis/lasse"
+    dir_name = "analysis/gabriele_forward_jump_pdtau"
     # os.mkdir(dir_name)
 
     # #IMU DATA 

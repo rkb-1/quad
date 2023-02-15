@@ -2,10 +2,37 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+#from sklearn.metrics import mean_squared_error
+from cProfile import label
 
-df_control = pd.read_csv('analysis/lasse/control_test.csv')
+from ctypes import util
+
+import matplotlib as mpl
+
+from cycler import cycler
+
+# plot style settings
+
+import matplotlib.pyplot as plt                                                                                          
+params = {'text.usetex': True,
+          'font.size': 15,
+          'font.family': 'sans-serif',
+          "font.sans-serif": ["Helvetica"],
+          # 'text.latex.unicode': True,
+          }
+plt.rcParams.update(params)
+mpl.rcParams['axes.prop_cycle'] = cycler(color=['#20639B',
+                                                'orange',
+                                                '#3CAEA3',
+                                                '#ED553B',
+                                                '#F6D55C',
+                                                'dimgrey']) # color scheme
+
+
+df_control = pd.read_csv('analysis/gabriele_forward_jump_pdtau/control_test.csv')
 # print(df_control.head())
-df_status =  pd.read_csv('analysis/lasse/status_test.csv')
+df_status =  pd.read_csv('analysis/gabriele_forward_jump_pdtau/status_test.csv')
 # print(df_status.head())
 # df_command = pd.read_csv('../results/csv_files/outside/quad_command_data_3mps_outside.csv')
 # print(df_command.head())
@@ -13,10 +40,10 @@ df_status =  pd.read_csv('analysis/lasse/status_test.csv')
 # print(df_tauIDyn.head())
 
 # Getting data according to start and stop index
-#start_t = 5 # inside_reg
-#stop_t = 7 # inside_reg
-#df_control = df_control[df_control['t[s]'].between(start_t,stop_t)]
-#df_status = df_status[df_status['t[s]'].between(start_t,stop_t)]
+start_t = 2.197 # inside_reg
+stop_t = 2.88 # inside_reg
+df_control = df_control[df_control['t[s]'].between(start_t,stop_t)]
+df_status = df_status[df_status['t[s]'].between(start_t,stop_t)]
 #df_command = df_command[df_command['t[s]'].between(start_t,stop_t)]
 #df_tauIDyn = df_tauIDyn[df_tauIDyn['t[s]'].between(start_t,stop_t)]
 
@@ -51,13 +78,13 @@ for i in range(4): # Legs 1,2,3,4
     for j in range(3): # joints 1,2,3
         x=3*i+j
         axes[j,0].plot(time_status,df_status[column_names_position[x]], label = 'joint_status')
-        axes[j,0].plot(time_control,df_control[column_names_position[x]], label = 'joint_control_command')
+        axes[j,0].plot(time_control,df_control[column_names_position[x]], label = 'joint_command')
         axes[j,0].set_title(column_names_position[x])
         axes[j,0].set(xlabel='time(s)')
         axes[j,0].set(ylabel='rad')
 
         axes[j,1].plot(time_status,df_status[column_names_velocity[x]], label = 'joint_status')
-        axes[j,1].plot(time_control,df_control[column_names_velocity[x]], label = 'joint_control_command')
+        axes[j,1].plot(time_control,df_control[column_names_velocity[x]], label = 'joint_command')
         axes[j,1].set_title(column_names_velocity[x])
         axes[j,1].set(xlabel='time(s)')
         axes[j,1].set(ylabel='rad/s')
@@ -69,15 +96,17 @@ for i in range(4): # Legs 1,2,3,4
         #axes[j,2].set(ylabel='rad/s^2')
 
         axes[j,2].plot(time_status,df_status[column_names_torque[x]], label = 'joint_status')
-        axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_control_command')
+        axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_command')
         axes[j,2].set_title(column_names_torque[x])
         axes[j,2].set(xlabel='time(s)')
         axes[j,2].set(ylabel='Nm')
 
     lines, labels = fig.axes[-1].get_legend_handles_labels()
-    fig.legend(lines, labels, loc = 'upper right') 
-    fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
-    plt.savefig('analysis/lasse/leg{}.png'.format(i+1))
+    #fig.legend(lines, labels, loc = 'upper right') 
+    #fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
+    #plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1))
+    fig.legend(lines, labels) 
+    plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1),format='pdf',bbox_inches='tight')
     plt.show()
     plt.close()
 

@@ -1081,7 +1081,7 @@ class QuadrupedControl::Impl {
     // std::string filename = "trajectories/planarJumpOnPlace_full_interp_frameCorrected.csv";
     // std::string filename = "trajectories/planarSalto_full_interp_frameCorrected.csv";
     // std::string filename = "trajectories/control_test.csv";
-    std::string filename = "trajectories/planarProblemSaltoForward_23012023_frameCorrected_interp_4.csv";
+    std::string filename = "trajectories/planarProblemSaltoForward_23012023_frameCorrected_interp.csv";
     // planarProblemBackflip_23012023_frameCorrected_interp
     // planarProblemSaltoForward_23012023_frameCorrected_interp
     // std::string filename = "modified_traj.csv";
@@ -1172,17 +1172,17 @@ class QuadrupedControl::Impl {
         out_joint.power = true;
         out_joint.angle_deg = y[j] * 180.0 / 3.14;
         out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
-        out_joint.torque_Nm = Tau[j];
+        // out_joint.torque_Nm = Tau[j];
 
-        // if(j == 3 || j== 6 || j== 9 || j== 12){
-        //   out_joint.kp_scale = 2.0;  // 200*2
-        //   out_joint.kd_scale = 6.0;  // 6 * 10
-        // } 
-        // // shoulder defualt kp = 200, else kp = 50
-        // else{
-        //   out_joint.kp_scale = 4.0;   //50*4 
-        //   out_joint.kd_scale = 5.0;  // 6*5
-        // }
+        if(j == 3 || j== 6 || j== 9 || j== 12){
+          out_joint.kp_scale = 2.0;  // 200*2
+          out_joint.kd_scale = 6.0;  // 6 * 10
+        } 
+        // shoulder defualt kp = 200, else kp = 50
+        else{
+          out_joint.kp_scale = 4.0;   //50*4 
+          out_joint.kd_scale = 5.0;  // 6*5
+        }
         // std::cout <<"Time:" << temp_time <<" Joint commands: " <<out_joint.angle_deg << " " << out_joint.velocity_dps << " " << out_joint.torque_Nm << std::endl;
         out_joints.push_back(out_joint);
       }  

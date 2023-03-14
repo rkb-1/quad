@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 
-csv_file_name = "traj_high_freq3"
+csv_file_name = "planarProblemBackflip_23012023"
 df_control = pd.read_csv(csv_file_name+".csv")
 
 df_control['q_fl2'] = df_control['q_fl2'].apply(lambda x: x*-1)

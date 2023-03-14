@@ -11,7 +11,7 @@ des_time_step = 0.0025                 #400hz             # Desired time step th
 #des_time_step =  0.005             #200 hz
 
 search_dir = '/home/dfki.uni-bremen.de/rkumar/quadruped-developments/mjbots-quad/quad/trajectories/' # Set search directory
-log_ident = 'traj_lasse_frameCorrected'                                   # Set log file identifier
+log_ident = 'planarProblemBackflip_23012023_frameCorrected'                                   # Set log file identifier
 # acc_thresh = 10                                   # Threshold for acceleration values; all exceeding nodes are deleted
 print('desired timestep: ', des_time_step)
 print('search directory: ', search_dir)

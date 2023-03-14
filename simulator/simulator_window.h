@@ -32,7 +32,7 @@ class SimulatorWindow {
 
   void AsyncStart(mjlib::io::ErrorCallback);
   void InitWindow(int x, int y, const char* name);
-
+  
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;

@@ -175,18 +175,18 @@ dd::SkeletonPtr MakeFloor() {
   auto floor = dd::Skeleton::create("floor");
   auto body = floor->createJointAndBodyNodePair<dd::WeldJoint>(nullptr).second;
 
-  double floor_width = 320.0;
+  double floor_width = 30.0;
   double floor_height = 0.01;
   auto box = std::make_shared<dd::BoxShape>(
       Eigen::Vector3d(floor_width, floor_width, floor_height));
   auto shape_node = body->createShapeNodeWith<
     dd::VisualAspect, dd::CollisionAspect, dd::DynamicsAspect>(box);
-  shape_node->getVisualAspect()->setColor(dart::Color::Black());
+  shape_node->getVisualAspect()->setColor(dart::Color::Red());
   // Put the body into position.
   Eigen::Isometry3d tf = Eigen::Isometry3d::Identity();
   tf.translation() = Eigen::Vector3d(0., 0., -0.5 * floor_height);
   body->getParentJoint()->setTransformFromParentBodyNode(tf);
-  
+
   return floor;
 }
 

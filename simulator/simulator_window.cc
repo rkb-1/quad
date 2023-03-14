@@ -14,6 +14,8 @@
 
 #include "simulator_window.h"
 
+#include <sstream>
+
 #include <boost/filesystem.hpp>
 
 #include <dart/dynamics/BoxShape.hpp>
@@ -41,6 +43,9 @@
 #include "mech/quadruped.h"
 
 #include "simulator/make_robot.h"
+
+
+#include <dart/gui/osg/InteractiveFrame.hpp>
 
 namespace dd = dart::dynamics;
 namespace ds = dart::simulation;
@@ -679,7 +684,7 @@ class SimulatorWindow::Impl : public dart::gui::glut::SimWindow {
   Impl(base::Context& context)
       : context_(context.context),
         executor_(context.executor),
-        quadruped_(context) {
+        quadruped_(context){
     g_impl_ = this;
     mDisplayTimeout = 10;
     world_->setTimeStep(0.0001);
@@ -700,8 +705,9 @@ class SimulatorWindow::Impl : public dart::gui::glut::SimWindow {
 
     world_->addSkeleton(floor_);
     world_->addSkeleton(robot_);
-
+    
     setWorld(world_);
+
   }
 
   void AsyncStart(mjlib::io::ErrorCallback callback) {
@@ -785,7 +791,17 @@ class SimulatorWindow::Impl : public dart::gui::glut::SimWindow {
 
     SimWindow::timeStepping();
 
-    mTrans = -1000.0 * robot_->getBodyNode("robot")->getTransform().translation();
+    const auto robot_transform = robot_->getBodyNode("robot")->getTransform();
+    mTrans = -1000.0 * robot_transform.translation();
+
+    // Eigen::Quaternionf q(robot_transform.rotation());
+    // std::cout<<"World transform x : " << robot_transform.translation()[0] << std::endl;
+    // std::cout<<"World transform y : " << robot_transform.translation()[1] << std::endl;
+    // std::cout<<"World transform z : " << robot_transform.translation()[2] << std::endl;
+    // std::cout<<"World transform rotation : \n" << robot_transform.rotation().eulerAngles(0,1,2) << std::endl;
+    // std::cout<<"World transform ry : " << robot_transform.rotation() << std::endl;
+    // std::cout<<"World transform rz : " << robot_transform.rotation() << std::endl;
+
   }
 
   boost::asio::io_context& context_;
@@ -812,6 +828,7 @@ class SimulatorWindow::Impl : public dart::gui::glut::SimWindow {
   mech::Quadruped quadruped_;
 
   SimPi3hat* pi3hat_ = nullptr;
+
 };
 
 SimulatorWindow::Impl* SimulatorWindow::Impl::g_impl_ = nullptr;

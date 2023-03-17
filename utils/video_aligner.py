@@ -51,8 +51,9 @@ def main():
 
     fr = file_reader.FileReader(args.log)
     
-    dir_name = "analysis/gabriele_forward_jump_pdtau"
-    # os.mkdir(dir_name)
+    folder_name = os.path.splitext(os.path.basename(args.log))[0]
+    folder = os.path.join('analysis/', folder_name)
+    os.makedirs(folder)
 
     # #IMU DATA 
 
@@ -184,7 +185,7 @@ def main():
                             "q_br1", "qd_br1","qdd_br1","Tau_br1","q_br2", "qd_br2","qdd_br2","Tau_br2","q_br3", "qd_br3","qdd_br3","Tau_br3"]
     df = df.reindex(columns=column_names)
     print(df.head())
-    df.to_csv(dir_name+'/control_test.csv')
+    df.to_csv(folder+'/control_test.csv')
     
     # Joints status output
     
@@ -262,7 +263,7 @@ def main():
     # print(df_status.head())
     df_status = df_status.reindex(columns=column_names)
     # print(df_status.head())
-    df_status.to_csv(dir_name + '/status_test.csv')
+    df_status.to_csv(folder + '/status_test.csv')
     
     ## Legs catesian position, velocity and force data in x,y,and z direction  
 
@@ -291,7 +292,22 @@ def main():
     # print(df_leg)
     # df_leg.to_csv(dir_name+'leg_measured_data.csv')
     
+    # POWER CONSUMPTION DATA
+
+    power_data = [(x.data.timestamp, x.data.power_W) for x in fr.items(['power'])]
+    start_s = power_data[0][0]
+    size_s = power_data[-1][0] - start_s
+
+    time = np.array([x[0] - start_s for x in power_data])
+    power = np.array([x[1] for x in power_data])
+    print("time: ", time)
     
+    power_df = pd.DataFrame({'t[s]': time, 'power_W': power})
+    power_df.to_csv(folder + '/power.csv')
+    
+    pylab.plot(time, power, linewidth=2, label='imu')
+    pylab.legend()
+    pylab.show()
     
     
     print("done")

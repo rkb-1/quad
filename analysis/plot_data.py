@@ -30,9 +30,19 @@ mpl.rcParams['axes.prop_cycle'] = cycler(color=['#20639B',
                                                 'dimgrey']) # color scheme
 
 
-df_control = pd.read_csv('analysis/gabriele_forward_jump_pdtau/control_test.csv')
+
+import argparse
+
+parser = argparse.ArgumentParser(description=__doc__)
+#parser.add_argument('-v', '--video', type=str)
+parser.add_argument('-f', '--folder', type=str)
+args = parser.parse_args()
+
+folder = args.folder
+
+df_control = pd.read_csv(folder + 'control_test.csv')
 # print(df_control.head())
-df_status =  pd.read_csv('analysis/gabriele_forward_jump_pdtau/status_test.csv')
+df_status =  pd.read_csv(folder + 'status_test.csv')
 # print(df_status.head())
 # df_command = pd.read_csv('../results/csv_files/outside/quad_command_data_3mps_outside.csv')
 # print(df_command.head())
@@ -40,8 +50,8 @@ df_status =  pd.read_csv('analysis/gabriele_forward_jump_pdtau/status_test.csv')
 # print(df_tauIDyn.head())
 
 # Getting data according to start and stop index
-start_t = 2.197 # inside_reg
-stop_t = 2.88 # inside_reg
+start_t = 5.725 # inside_reg
+stop_t = 6.425 # inside_reg
 df_control = df_control[df_control['t[s]'].between(start_t,stop_t)]
 df_status = df_status[df_status['t[s]'].between(start_t,stop_t)]
 #df_command = df_command[df_command['t[s]'].between(start_t,stop_t)]
@@ -72,7 +82,7 @@ column_names_torque = np.array(df_status.columns[df_status.columns.to_series().s
 leg_names = ['Front Left Leg', 'Front Right Leg', 'Back Left Leg', 'Back Right Leg']
 for i in range(4): # Legs 1,2,3,4
     fig, axes = plt.subplots(3, 3)
-    fig.set_size_inches(30, 12, forward=True)
+    fig.set_size_inches(25, 15, forward=True)
     plt.subplots_adjust(left  = 0.03, right = 0.97, hspace = 0.25, wspace = 0.25)
         
     for j in range(3): # joints 1,2,3
@@ -96,17 +106,17 @@ for i in range(4): # Legs 1,2,3,4
         #axes[j,2].set(ylabel='rad/s^2')
 
         axes[j,2].plot(time_status,df_status[column_names_torque[x]], label = 'joint_status')
-        axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_command')
+        # axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_command')
         axes[j,2].set_title(column_names_torque[x])
         axes[j,2].set(xlabel='time(s)')
         axes[j,2].set(ylabel='Nm')
 
-    lines, labels = fig.axes[-1].get_legend_handles_labels()
+    lines, labels = fig.axes[0].get_legend_handles_labels()
     #fig.legend(lines, labels, loc = 'upper right') 
-    #fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
+    fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
     #plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1))
     fig.legend(lines, labels) 
-    plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1),format='pdf',bbox_inches='tight')
+    plt.savefig(folder+'leg{}clipped.pdf'.format(i+1),format='pdf',bbox_inches='tight')
     plt.show()
     plt.close()
 

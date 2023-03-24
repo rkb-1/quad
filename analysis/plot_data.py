@@ -44,81 +44,83 @@ df_control = pd.read_csv(folder + 'control_test.csv')
 # print(df_control.head())
 df_status =  pd.read_csv(folder + 'status_test.csv')
 # print(df_status.head())
+df_power = pd.read_csv(folder + 'power.csv')
 # df_command = pd.read_csv('../results/csv_files/outside/quad_command_data_3mps_outside.csv')
 # print(df_command.head())
 # df_tauIDyn = pd.read_csv('../results/csv_files/inside/slow_walk_idyn.csv')
 # print(df_tauIDyn.head())
 
 # Getting data according to start and stop index
-start_t = 5.725 # inside_reg
-stop_t = 6.425 # inside_reg
+start_t = 4.29 # inside_reg
+stop_t = 5.05 # inside_reg
 df_control = df_control[df_control['t[s]'].between(start_t,stop_t)]
 df_status = df_status[df_status['t[s]'].between(start_t,stop_t)]
-#df_command = df_command[df_command['t[s]'].between(start_t,stop_t)]
-#df_tauIDyn = df_tauIDyn[df_tauIDyn['t[s]'].between(start_t,stop_t)]
+df_power = df_power[df_power['t[s]'].between(start_t,stop_t)]
+# #df_command = df_command[df_command['t[s]'].between(start_t,stop_t)]
+# #df_tauIDyn = df_tauIDyn[df_tauIDyn['t[s]'].between(start_t,stop_t)]
 
-# Setting up the column names for plots
-time_status = df_status['t[s]']
-time_control = df_control['t[s]']
-column_names_position = np.array(df_status.columns[df_status.columns.to_series().str.contains('q_')])
-column_names_velocity = np.array(df_status.columns[df_status.columns.to_series().str.contains('qd_')])
-column_names_acceleration = np.array(df_status.columns[df_status.columns.to_series().str.contains('qdd_')])
-column_names_torque = np.array(df_status.columns[df_status.columns.to_series().str.contains('Tau_')])
+# # Setting up the column names for plots
+# time_status = df_status['t[s]']
+# time_control = df_control['t[s]']
+# column_names_position = np.array(df_status.columns[df_status.columns.to_series().str.contains('q_')])
+# column_names_velocity = np.array(df_status.columns[df_status.columns.to_series().str.contains('qd_')])
+# column_names_acceleration = np.array(df_status.columns[df_status.columns.to_series().str.contains('qdd_')])
+# column_names_torque = np.array(df_status.columns[df_status.columns.to_series().str.contains('Tau_')])
 
-# Commands plot
-# fig, axes = plt.subplots(2)
-# df_command.plot(kind='line',x='t[s]',y="command_vel",ax=axes[0])
-# df_command.plot(kind='line',x='t[s]',y="command_omega",color = 'r',ax=axes[1])
-# fig.set_size_inches(30, 12, forward=True)
-# fig.suptitle('Commanded velocities', fontsize=16)
-# axes[0].set_ylabel('m/s')
-# axes[1].set_ylabel('rad/s')
-# plt.savefig('../results/quad_3mps/outside/command.png')
-# plt.show()
-# plt.clf()
-# plt.close()
+# # Commands plot
+# # fig, axes = plt.subplots(2)
+# # df_command.plot(kind='line',x='t[s]',y="command_vel",ax=axes[0])
+# # df_command.plot(kind='line',x='t[s]',y="command_omega",color = 'r',ax=axes[1])
+# # fig.set_size_inches(30, 12, forward=True)
+# # fig.suptitle('Commanded velocities', fontsize=16)
+# # axes[0].set_ylabel('m/s')
+# # axes[1].set_ylabel('rad/s')
+# # plt.savefig('../results/quad_3mps/outside/command.png')
+# # plt.show()
+# # plt.clf()
+# # plt.close()
 
-# LEGS PLOTS
-leg_names = ['Front Left Leg', 'Front Right Leg', 'Back Left Leg', 'Back Right Leg']
-for i in range(4): # Legs 1,2,3,4
-    fig, axes = plt.subplots(3, 3)
-    fig.set_size_inches(25, 15, forward=True)
-    plt.subplots_adjust(left  = 0.03, right = 0.97, hspace = 0.25, wspace = 0.25)
+# # LEGS PLOTS
+# leg_names = ['Front Left Leg', 'Front Right Leg', 'Back Left Leg', 'Back Right Leg']
+# for i in range(4): # Legs 1,2,3,4
+#     fig, axes = plt.subplots(3, 3)
+#     fig.set_size_inches(25, 15, forward=True)
+#     plt.subplots_adjust(left  = 0.03, right = 0.97, hspace = 0.25, wspace = 0.25)
         
-    for j in range(3): # joints 1,2,3
-        x=3*i+j
-        axes[j,0].plot(time_status,df_status[column_names_position[x]], label = 'joint_status')
-        axes[j,0].plot(time_control,df_control[column_names_position[x]], label = 'joint_command')
-        axes[j,0].set_title(column_names_position[x])
-        axes[j,0].set(xlabel='time(s)')
-        axes[j,0].set(ylabel='rad')
+#     for j in range(3): # joints 1,2,3
+#         x=3*i+j
+#         axes[j,0].plot(time_status,df_status[column_names_position[x]], label = 'joint_status')
+#         axes[j,0].plot(time_control,df_control[column_names_position[x]], label = 'joint_command')
+#         axes[j,0].set_title(column_names_position[x])
+#         axes[j,0].set(xlabel='time(s)')
+#         axes[j,0].set(ylabel='rad')
 
-        axes[j,1].plot(time_status,df_status[column_names_velocity[x]], label = 'joint_status')
-        axes[j,1].plot(time_control,df_control[column_names_velocity[x]], label = 'joint_command')
-        axes[j,1].set_title(column_names_velocity[x])
-        axes[j,1].set(xlabel='time(s)')
-        axes[j,1].set(ylabel='rad/s')
+#         axes[j,1].plot(time_status,df_status[column_names_velocity[x]], label = 'joint_status')
+#         axes[j,1].plot(time_control,df_control[column_names_velocity[x]], label = 'joint_command')
+#         axes[j,1].set_title(column_names_velocity[x])
+#         axes[j,1].set(xlabel='time(s)')
+#         axes[j,1].set(ylabel='rad/s')
 
-        #axes[j,2].plot(time_status,df_status[column_names_acceleration[x]], label = 'joint_status')
-        #axes[j,2].plot(time_control,df_control[column_names_acceleration[x]], label = 'joint_control_command')
-        #axes[j,2].set_title(column_names_acceleration[x])
-        #axes[j,2].set(xlabel='time(s)')
-        #axes[j,2].set(ylabel='rad/s^2')
+#         #axes[j,2].plot(time_status,df_status[column_names_acceleration[x]], label = 'joint_status')
+#         #axes[j,2].plot(time_control,df_control[column_names_acceleration[x]], label = 'joint_control_command')
+#         #axes[j,2].set_title(column_names_acceleration[x])
+#         #axes[j,2].set(xlabel='time(s)')
+#         #axes[j,2].set(ylabel='rad/s^2')
 
-        axes[j,2].plot(time_status,df_status[column_names_torque[x]], label = 'joint_status')
-        # axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_command')
-        axes[j,2].set_title(column_names_torque[x])
-        axes[j,2].set(xlabel='time(s)')
-        axes[j,2].set(ylabel='Nm')
+#         axes[j,2].plot(time_status,df_status[column_names_torque[x]], label = 'joint_status')
+#         # axes[j,2].plot(time_control,df_control[column_names_torque[x]], label = 'joint_command')
+#         axes[j,2].set_title(column_names_torque[x])
+#         axes[j,2].set(xlabel='time(s)')
+#         axes[j,2].set(ylabel='Nm')
 
-    lines, labels = fig.axes[0].get_legend_handles_labels()
-    #fig.legend(lines, labels, loc = 'upper right') 
-    fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
-    #plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1))
-    fig.legend(lines, labels) 
-    plt.savefig(folder+'leg{}clipped.pdf'.format(i+1),format='pdf',bbox_inches='tight')
-    plt.show()
-    plt.close()
+#     lines, labels = fig.axes[0].get_legend_handles_labels()
+#     #fig.legend(lines, labels, loc = 'upper right') 
+#     fig.suptitle(str("LEG: {}".format(i+1) + " or {}".format(leg_names[i])), fontsize=16)
+#     #plt.savefig('analysis/gabriele_forward_jump_pdtau/leg{}.png'.format(i+1))
+#     fig.legend(lines, labels) 
+#     plt.savefig(folder+'leg{}clipped.pdf'.format(i+1),format='pdf',bbox_inches='tight')
+#     plt.show()
+#     plt.close()
 
 
 ## Check Inverse dynamics from HyRoDyn with the torques from the quadruped
@@ -159,4 +161,11 @@ for i in range(4): # Legs 1,2,3,4
 # plt.close()  
 
 
+## POWER Consumption data plots
 
+plt.plot(df_power['t[s]'], df_power['power_W'])
+plt.xlabel('Time (s)')
+plt.ylabel('Power (W)')
+plt.title('Power = Voltage*Current')
+plt.savefig(folder+'powerClipped.pdf',format='pdf',bbox_inches='tight')
+plt.show()

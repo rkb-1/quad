@@ -193,7 +193,7 @@ struct QuadrupedConfig {
     double land_kp = 1.0;
     double land_kd = 0.1;
     double lower_height = 0.100;
-    double upper_height = 0.220;
+    double upper_height = 0.240; //original upper_height = 0.22
     double retract_height = 0.190;
     double landing_force_scale = 1.0;
     double land_gain_increase = 100.0;

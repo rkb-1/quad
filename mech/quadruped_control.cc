@@ -1168,7 +1168,7 @@ class QuadrupedControl::Impl {
         interpolate_time = 0.0; 
         initPosition_reached = true;
         num_of_times += 1;
-        std::cout<<" No. of times : " << num_of_times <<std::endl; 
+        // std::cout<<" No. of times : " << num_of_times <<std::endl; 
       }
       
       // if(interpolate_time > 3 ){ 
@@ -1187,17 +1187,16 @@ class QuadrupedControl::Impl {
         out_joint.power = true;
         out_joint.angle_deg = y[j] * 180.0 / 3.14;
         out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
-        out_joint.torque_Nm = Tau[j];
+        // out_joint.torque_Nm = Tau[j];
         // out_joint.kp_scale = 5.0;
         // out_joint.kd_scale = 1.0;
-        // out_joint.torque_Nm = Tau[j]*1.2 + 0.1*( y[j]*180*0/3.14 - status_.state.joints[j].angle_deg) + 0.1*(yd[j]*180*0/3.14 - status_.state.joints[j].velocity_dps);
 
         if(j == 2 || j== 5 || j== 1 || j== 4){
-          out_joint.kp_scale = 6.0;  // 200*2
-          out_joint.kd_scale = 1.0;  // 6 * 10
+          out_joint.kp_scale = 3.0;  // 200*2
+          out_joint.kd_scale = 0.1;  // 6 * 10
         } 
         if(j == 7 || j== 8 || j== 10 || j== 11){
-          out_joint.kp_scale = 3.0;  // 200*2
+          out_joint.kp_scale = 2.0;  // 200*2
           out_joint.kd_scale = 1.0;  // 6 * 10
         } 
         // // shoulder defualt kp = 200, else kp = 50
@@ -1210,13 +1209,6 @@ class QuadrupedControl::Impl {
       }  
     }
     if (temp_time >= time_trajectory || traj_finished){
-      // for (uint j = 0; j < y.size(); j++){
-      //   QC::Joint out_joint;
-      //   out_joint.id = j + 1;
-      //   out_joint.power = true;
-      //   out_joint.zero_velocity = true;
-      //   out_joints.push_back(out_joint);
-      // }
       for (uint j = 0; j < 12; j++) {
         QC::Joint out_joint;
         out_joint.id = j + 1;
@@ -1238,7 +1230,7 @@ class QuadrupedControl::Impl {
       initPosition_reached = false;
       // std::cout << "trajectory finished " << std::endl;
       interpolate_time = interpolate_time + 0.0025;
-      bool all_done = true;
+      // bool all_done = true;
       // for (uint j = 0; j < 12; j++) {
       //   QC::Joint out_joint;
       //   // std::cout << all_done << " difference in angle: " << std::abs(y_vec_initPose[j] * 180.0 / 3.14 - status_.state.joints[j].angle_deg) << std::endl;
@@ -1246,12 +1238,13 @@ class QuadrupedControl::Impl {
       //     all_done = false;
       //   }
       // }
-      if (interpolate_time > 0.01){
-        interpolate_time = 0.0; 
+      if (interpolate_time > 0.1){
+        
         std::cout<<" No. of times : " << num_of_times <<std::endl; 
         if (num_of_times < req_num_of_times){
           traj_finished = false;
           std::cout<< " Going for next one " << std::endl;
+          interpolate_time = 0.0; 
         }
         else{
           std::cout<< " Traj finished. " <<std::endl;
@@ -3150,7 +3143,7 @@ class QuadrupedControl::Impl {
   bool traj_finished = false; 
   bool initPosition_reached = false;
   double temp_time = 0;
-  int req_num_of_times = 4, num_of_times = 0;
+  int req_num_of_times = 6, num_of_times = 0;
   Eigen::VectorXd y_vec_initPose, y_vec_finalPose;
   std::vector<Eigen::VectorXd> y_vec;
   std::vector<Eigen::VectorXd> yd_vec;

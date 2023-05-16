@@ -101,6 +101,21 @@ struct QuadrupedState {
   std::vector<Leg> legs_B;
   Leg leg_onemove, pee_behavior;
 
+
+  struct Traj_replay {
+    enum Mode {
+        kInitPose,
+        kReplay,
+        kDone,
+      };
+    Mode mode = kInitPose;
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(mode));
+    }
+  };
+  Traj_replay replay_behavior;
+
   // And finally, the robot level.
   struct Robot {
     // Only v[0, 1] and w[2] will be non-zero.
@@ -329,6 +344,7 @@ struct QuadrupedState {
     a->Visit(MJ_NVP(legs_B));
     a->Visit(MJ_NVP(leg_onemove));
     a->Visit(MJ_NVP(pee_behavior));
+    a->Visit(MJ_NVP(replay_behavior));
     a->Visit(MJ_NVP(robot));
 
     a->Visit(MJ_NVP(stand_up));
@@ -431,5 +447,20 @@ struct IsEnum<mjmech::mech::QuadrupedState::Leg::Mode> {
     };
   }
 };
+template <>
+struct IsEnum<mjmech::mech::QuadrupedState::Traj_replay::Mode> {
+  static constexpr bool value = true;
+
+  using M = mjmech::mech::QuadrupedState::Traj_replay::Mode;
+
+  static inline std::map<M, const char*> map() {
+    return {
+      { M::kInitPose, "initPose" },
+      { M::kReplay, "replay" },
+      { M::kDone, "done" },
+    };
+  }
+};
+
 }
 }

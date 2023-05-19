@@ -105,7 +105,9 @@ struct QuadrupedState {
   struct Traj_replay {
     enum Mode {
         kInitPose,
-        kReplay,
+        kExertion,
+        kFlight,
+        kLand,
         kDone,
       };
     Mode mode = kInitPose;
@@ -116,6 +118,7 @@ struct QuadrupedState {
   };
   Traj_replay replay_behavior;
 
+  
   // And finally, the robot level.
   struct Robot {
     // Only v[0, 1] and w[2] will be non-zero.
@@ -456,7 +459,9 @@ struct IsEnum<mjmech::mech::QuadrupedState::Traj_replay::Mode> {
   static inline std::map<M, const char*> map() {
     return {
       { M::kInitPose, "initPose" },
-      { M::kReplay, "replay" },
+      { M::kExertion, "exertion" },
+      { M::kFlight, "flight" },
+      { M::kLand, "landing" },
       { M::kDone, "done" },
     };
   }

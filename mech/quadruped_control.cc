@@ -771,8 +771,25 @@ class QuadrupedControl::Impl {
         DoControl_Backflip();
         break;
       }
-      case QM::kJointTraj: { 
-	      DoControl_Trajectory(y_vec[temp_time], yd_vec[temp_time], Tau_vec[temp_time], contactPhases_vec[temp_time]);  
+      case QM::kJointTraj: {
+        switch (status_.state.replay_behavior.mode){
+          case QuadrupedState::Traj_replay::Mode::kExertion:{
+            DoControl_Trajectory(yExertion[temp_time], ydExertion[temp_time], TauExertion[temp_time], 1);
+            break; 
+          }
+          case QuadrupedState::Traj_replay::Mode::kFlight:{
+            DoControl_Trajectory(yFlight[temp_time], ydFlight[temp_time], TauFlight[temp_time], 0);
+            break; 
+          }
+          case QuadrupedState::Traj_replay::Mode::kLand:{
+            DoControl_Trajectory(yLand[temp_time], ydLand[temp_time], TauLand[temp_time], 2);
+            break; 
+          }
+          default:
+            DoControl_Trajectory(y_vec[0], yd_vec[0], Tau_vec[0], contactPhases_vec[0]); 
+            break;
+        } 
+	       
 	      break;
       }
       case QM::kPee: { 
@@ -1083,7 +1100,8 @@ class QuadrupedControl::Impl {
     // std::string filename = "trajectories/control_test.csv";
     // std::string filename = "trajectories/planarProblemSaltoForward17032023_frameCorrected_interp.csv";  // working trajectory from Gabriele 
     // std::string filename = "trajectories/planarProblemSaltoForward200423_reverse_frameCorrected_interp.csv";  // new trajectory from Gabriele 
-    std::string filename = "trajectories/planarProblemSaltoForward_240423_frameCorrected_interp.csv";
+    // std::string filename = "trajectories/planarProblemSaltoForward_240423_frameCorrected_interp.csv";
+    std::string filename = "trajectories/tau_last_removed.csv";
     // planarProblemSaltoForward200423_frameCorrected_interp
     // planarProblemSaltoForward_23012023_frameCorrected_interp
     // std::string filename = "modified_traj.csv";
@@ -1136,21 +1154,50 @@ class QuadrupedControl::Impl {
     std::cout << "CSV file read, total rows: " << time_trajectory << std::endl;
     std::cout << "File name : " << filename << std::endl << "Init pose "<< y_vec_initPose << std::endl;
     std::cout << "Contact seq : " << contactPhases_vec[0] << std::endl;
+    for(int i = 0; i < time_trajectory; i++){
+      if(contactPhases_vec[i]==1){
+        yExertion.push_back(y_vec[i]);
+        ydExertion.push_back(yd_vec[i]);
+        TauExertion.push_back(Tau_vec[i]);
+      }
+      if(contactPhases_vec[i]==0){
+        yFlight.push_back(y_vec[i]);
+        ydFlight.push_back(yd_vec[i]);
+        TauFlight.push_back(Tau_vec[i]);
+      }
+      if(contactPhases_vec[i]==2){
+        yLand.push_back(y_vec[i]);
+        ydLand.push_back(yd_vec[i]);
+        TauLand.push_back(Tau_vec[i]);
+      }
+    }
+    std::cout << "Size of exertion phases: " << yExertion.size() << std::endl;
+    std::cout << "Size of flight phases: " << TauFlight.size() << std::endl;
+    std::cout << "Size of land phases: " << ydLand.size() << std::endl;
   }
 
 
   float naive_lerp(float a, float b, float t){
       return a + t * (b - a);
   }
+  double calculateNorm(const std::vector<double>& vector) {
+    double sumOfSquares = 0.0;
 
+    for (double value : vector) {
+        sumOfSquares += std::pow(value, 2);
+    }
+
+    return std::sqrt(sumOfSquares);
+  }
   void DoControl_Trajectory(Eigen::VectorXd y, Eigen::VectorXd yd, Eigen::VectorXd Tau, int contact){
     
     std::vector<QC::Joint> out_joints;
     
     using M = QuadrupedState::Traj_replay::Mode;
-    // std::cout << " Mode : " << status_.state.replay_behavior.mode << std::endl;
+    std::cout << " Mode : " << status_.state.replay_behavior.mode << std::endl;
     switch (status_.state.replay_behavior.mode)
     {
+      /////////// Interpolation phase
       case M::kInitPose:{
         bool all_done = true;
         for (uint j = 0; j < 12; j++) {
@@ -1175,47 +1222,67 @@ class QuadrupedControl::Impl {
         interpolate_time = interpolate_time + 0.0025;
         if (all_done){
           interpolate_time = 0.0; 
-          num_of_times += 1;
+          // num_of_times += 1;
           temp_time = 0;
-          status_.state.replay_behavior.mode = M::kReplay;
+          status_.state.replay_behavior.mode = M::kExertion;
           break;
         }
         ControlJoints(std::move(out_joints));
         break;
       }
-      case M::kReplay:{
+
+      //////////////// Exertion Phase
+      case M::kExertion:{
+        std::vector<double> tau_meas;
         for (uint j = 0; j < y.size(); j++){
           QC::Joint out_joint;
           out_joint.id = j + 1;
           out_joint.power = true;
-          out_joint.angle_deg = y[j] * 180.0 / 3.14;
+          out_joint.angle_deg = y[j] * 180.0 / 3.14 ;
           out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
-
-
-          if(contact == 1 || contact ==2 ){
-            out_joint.torque_Nm = Tau[j];
-            if(j == 2 || j== 5 || j== 1 || j== 4){
+          // out_joint.kp_scale = 0.5;
+          // out_joint.kd_scale = 0.5;
+          // out_joint.torque_Nm = Tau[j];
+          // out_joint.torque_Nm += Tau[j] + 0.02*(y[j] * 180.0 / 3.14 - status_.state.joints[j].angle_deg) + 0.02* (yd[j] * 180.0 / 3.14 - status_.state.joints[j].velocity_dps);
+          // if(contact == 1 ){
+          //   // out_joint.torque_Nm +=  0.05*(y[j] * 180.0 / 3.14 - status_.state.joints[j].angle_deg) + 0.15* (yd[j] * 180.0 / 3.14 - status_.state.joints[j].velocity_dps);
+          //   // out_joint.kp_scale = 2.0;
+          //   // out_joint.kd_scale = 2.0;
+          //   // out_joint.torque_Nm =(Tau[j]-status_.state.joints[j].torque_Nm);
+            if(j == 0 || j== 1 || j== 3 || j== 4){
               out_joint.kp_scale = 0.5;  // 200*2
               out_joint.kd_scale = 0.5;  // 6 * 10
+              out_joint.torque_Nm = Tau[j];
             } 
-            if(j == 7 || j== 8 || j== 10 || j== 11){
+            if(j == 6 || j== 7 || j== 9 || j== 10){
               out_joint.kp_scale = 0.5;  // 200*2
               out_joint.kd_scale = 0.5;  // 6 * 10
+              out_joint.torque_Nm = Tau[j];
             } 
-          }
-          if(contact == 0){
-            if(j == 2 || j== 5 || j== 1 || j== 4){
-              out_joint.kp_scale = 2.0;  // 200*2
-              out_joint.kd_scale = 2.0;  // 6 * 10
-            } 
-            if(j == 7 || j== 8 || j== 10 || j== 11){
-              out_joint.kp_scale = 2.0;  // 200*2
-              out_joint.kd_scale = 2.0;  // 6 * 10
-            } 
-          }
+          // }
+          // if(contact == 0){
+          //   if(j == 0 || j== 1 || j== 3 || j== 4){
+          //     out_joint.kp_scale = 2.0;  // 200*2
+          //     out_joint.kd_scale = 2.0;  // 6 * 10
+          //   } 
+          //   if(j == 6 || j== 7 || j== 9 || j== 10){
+          //     out_joint.kp_scale = 2.0;  // 200*2
+          //     out_joint.kd_scale = 2.0;  // 6 * 10
+          //   } 
+          // }
+          // if(contact == 2){
+          //   if(j == 0 || j== 1 || j== 3 || j== 4){
+          //     out_joint.kp_scale = 2.0;  // 200*2
+          //     out_joint.kd_scale = 2.0;  // 6 * 10
+          //   } 
+          //   if(j == 6 || j== 7 || j== 9 || j== 10){
+          //     out_joint.kp_scale = 2.0;  // 200*2
+          //     out_joint.kd_scale = 2.0;  // 6 * 10
+          //   } 
+          // }
         
           // PURE TORQUE CONTROL Works But only in simulation
-
+          // out_joint.torque_Nm += Tau[j] + 0.2*(y[j] * 180.0 / 3.14 - status_.state.joints[j].angle_deg) + 0.2* (yd[j] * 180.0 / 3.14 - status_.state.joints[j].velocity_dps);
           // if(contact == 1){
           //   out_joint.torque_Nm += Tau[j] + 0.02*(y[j] * 180.0 / 3.14 - status_.state.joints[j].angle_deg) + 0.02* (yd[j] * 180.0 / 3.14 - status_.state.joints[j].velocity_dps);
           // }
@@ -1230,19 +1297,118 @@ class QuadrupedControl::Impl {
           // }
           // std::cout << "Contact Phase : " << contact << std::endl;
           // std::cout<< "Angle : "<< out_joint.angle_deg << std::endl; 
+          tau_meas.push_back(status_.state.joints[j].torque_Nm);
           out_joints.push_back(out_joint);
         }  
         temp_time = temp_time + 1;
-        if (temp_time >= time_trajectory){
-          temp_time = temp_time -1;
-          status_.state.replay_behavior.mode = M::kDone;
+
+        std::cout << "norm  " << calculateNorm(tau_meas) << std::endl;
+         
+        if ( calculateNorm(tau_meas) > 20.0 && temp_time > yExertion.size()/2){
+          temp_time = 0;
+          status_.state.replay_behavior.mode = M::kFlight;
+          break;
+        }
+        else if(temp_time == yExertion.size()){
+          temp_time = temp_time-1;
+          break;
+        }
+        // else{
+        //   temp_time = temp_time-1;
+        //   break;
+        // }
+        // if (temp_time == yExertion.size()){
+        //   // temp_time = temp_time -1;
+        //   temp_time = 0;
+        //   status_.state.replay_behavior.mode = M::kFlight;
+        //   break;
+        // }
+
+        // if (temp_time >= time_trajectory){
+        //   temp_time = temp_time -1;
+        //   num_of_times += 1;
+        //   status_.state.replay_behavior.mode = M::kDone;
+        //   break;
+        // }
+        ControlJoints(std::move(out_joints));
+        break;
+      }
+
+      //////// FLIGHT PHASE
+      case M::kFlight:{
+        std::vector<double> tau_meas;
+        for (uint j = 0; j < y.size(); j++){
+          QC::Joint out_joint;
+          out_joint.id = j + 1;
+          out_joint.power = true;
+          out_joint.angle_deg = y[j] * 180.0 / 3.14;
+          out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
+          out_joint.kp_scale = 1.5;
+          out_joint.kd_scale = 1.5;
+          // std::cout << "Contact Phase : " << contact << std::endl;
+          // std::cout<< "Angle : "<< out_joint.angle_deg << std::endl; 
+          out_joints.push_back(out_joint);
+          tau_meas.push_back(status_.state.joints[j].torque_Nm);
+        }  
+        temp_time = temp_time + 1;
+        // if (temp_time == yFlight.size()){
+        //   temp_time = 0;
+        //   status_.state.replay_behavior.mode = M::kLand;
+        //   break;
+        // }
+        // std::cout << "status_.state.joints[1].torque_Nm " << status_.state.joints[1].torque_Nm << std::endl;
+        // std::cout << "status_.state.joints[0].torque_Nm " << status_.state.joints[0].torque_Nm << std::endl;
+        std::cout << "norm  " << calculateNorm(tau_meas) << std::endl;
+         
+        if ( calculateNorm(tau_meas) > 10.0 && temp_time > yFlight.size()/2){
+          temp_time = 0;
+          status_.state.replay_behavior.mode = M::kLand;
+          break;
+        }
+        else if(temp_time == yFlight.size()){
+          temp_time = temp_time-1;
           break;
         }
         ControlJoints(std::move(out_joints));
         break;
       }
+
+      /////////////// LANDING PHASE 
+      case M::kLand:{
+        for (uint j = 0; j < y.size(); j++){
+          QC::Joint out_joint;
+          out_joint.id = j + 1;
+          out_joint.power = true;
+          out_joint.angle_deg = y[j] * 180.0 / 3.14 ;
+          out_joint.velocity_dps = yd[j] * 180.0 / 3.14;
+          out_joint.kp_scale = 2.0;
+          out_joint.kd_scale = 2.0;
+          // std::cout << "Contact Phase : " << contact << std::endl;
+          // std::cout<< "Angle : "<< out_joint.angle_deg << std::endl; 
+          out_joints.push_back(out_joint);
+        }  
+        temp_time = temp_time + 1;
+        if (temp_time == yLand.size()){
+          temp_time = 0;
+          num_of_times += 1;
+          if (num_of_times < req_num_of_times){
+            interpolate_time = 0.0;
+            temp_time = 0;
+            status_.state.replay_behavior.mode = M::kExertion;
+            break;
+          }
+          else{
+            status_.state.replay_behavior.mode = M::kDone;
+            break;
+          }
+          
+        }
+        ControlJoints(std::move(out_joints));
+        break;
+      }
+
+
       case M::kDone:{
-        
         for (uint j = 0; j < 12; j++) {
             QC::Joint out_joint;
             out_joint.id = j + 1;
@@ -1263,12 +1429,13 @@ class QuadrupedControl::Impl {
         }
         interpolate_time = interpolate_time + 0.0025;
         std::cout<<" No. of times : " << num_of_times <<std::endl;
-        if (num_of_times < req_num_of_times){
-          interpolate_time = 0.0;
-          status_.state.replay_behavior.mode = M::kInitPose;
-          break;
-        }
-        else if (interpolate_time > 0.2)
+        // if (num_of_times < req_num_of_times){
+        //   interpolate_time = 0.0;
+        //   temp_time = 0;
+        //   status_.state.replay_behavior.mode = M::kInitPose;
+        //   break;
+        // }
+        if (interpolate_time > 0.5)
         {
           DoControl_ZeroVelocity();
           break;
@@ -3319,9 +3486,9 @@ class QuadrupedControl::Impl {
   double temp_time = 0;
   int req_num_of_times = 4, num_of_times = 0;
   Eigen::VectorXd y_vec_initPose, y_vec_finalPose;
-  std::vector<Eigen::VectorXd> y_vec;
-  std::vector<Eigen::VectorXd> yd_vec;
-  std::vector<Eigen::VectorXd> Tau_vec;
+  std::vector<Eigen::VectorXd> y_vec, yExertion, yFlight, yLand;
+  std::vector<Eigen::VectorXd> yd_vec, ydExertion, ydFlight, ydLand;
+  std::vector<Eigen::VectorXd> Tau_vec, TauExertion, TauFlight, TauLand;
   std::vector<int> contactPhases_vec;
   int counter_LiftLeg = 0;
   bool upMovement=false, downMovement = true;

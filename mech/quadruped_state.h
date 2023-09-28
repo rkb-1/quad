@@ -111,9 +111,13 @@ struct QuadrupedState {
         kDone,
       };
     Mode mode = kInitPose;
+    int tau_contact_exertion_flight = 0;
+    int tau_contact_flight_land = 0;
     template <typename Archive>
     void Serialize(Archive* a) {
       a->Visit(MJ_NVP(mode));
+      a->Visit(MJ_NVP(tau_contact_exertion_flight));
+      a->Visit(MJ_NVP(tau_contact_flight_land));
     }
   };
   Traj_replay replay_behavior;

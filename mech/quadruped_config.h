@@ -105,6 +105,24 @@ struct QuadrupedConfig {
     }
   };
   Pee_behavior pee_behavior;
+
+
+  struct Traj_replay {
+    bool use_contact_threshold = false;
+    bool use_desired_contact = true;
+    double exertion_flight_threshold = 20;
+    double flight_land_threshold = 10;
+    int n_jumps = 6;
+    template <typename Archive>
+    void Serialize(Archive* a) {
+      a->Visit(MJ_NVP(use_contact_threshold));
+      a->Visit(MJ_NVP(use_desired_contact));
+      a->Visit(MJ_NVP(exertion_flight_threshold));
+      a->Visit(MJ_NVP(flight_land_threshold));
+      a->Visit(MJ_NVP(n_jumps));
+    }
+  };
+  Traj_replay replay;
   ////////until here
   
   struct Bounds {
@@ -193,7 +211,7 @@ struct QuadrupedConfig {
     double land_kp = 1.0;
     double land_kd = 0.1;
     double lower_height = 0.100;
-    double upper_height = 0.240; //original upper_height = 0.22
+    double upper_height = 0.220; //original upper_height = 0.22
     double retract_height = 0.190;
     double landing_force_scale = 1.0;
     double land_gain_increase = 100.0;
@@ -344,6 +362,7 @@ struct QuadrupedConfig {
     a->Visit(MJ_NVP(legs));
     a->Visit(MJ_NVP(leg_onemove));
     a->Visit(MJ_NVP(pee_behavior));
+    a->Visit(MJ_NVP(replay));
     a->Visit(MJ_NVP(bounds));
     a->Visit(MJ_NVP(mass_kg));
     a->Visit(MJ_NVP(leg_mass_kg));

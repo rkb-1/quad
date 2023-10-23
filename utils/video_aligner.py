@@ -53,7 +53,7 @@ def main():
     
     folder_name = os.path.splitext(os.path.basename(args.log))[0]
     folder = os.path.join('analysis/', folder_name)
-    os.makedirs(folder)
+    # os.makedirs(folder)
 
     # #IMU DATA 
 
@@ -294,22 +294,68 @@ def main():
     
     # POWER CONSUMPTION DATA
 
-    power_data = [(x.data.timestamp, x.data.power_W) for x in fr.items(['power'])]
-    start_s = power_data[0][0]
-    size_s = power_data[-1][0] - start_s
+    # power_data = [(x.data.timestamp, x.data.power_W) for x in fr.items(['power'])]
+    # start_s = power_data[0][0]
+    # size_s = power_data[-1][0] - start_s
 
-    time = np.array([x[0] - start_s for x in power_data])
-    power = np.array([x[1] for x in power_data])
-    print("time: ", time)
+    # time = np.array([x[0] - start_s for x in power_data])
+    # power = np.array([x[1] for x in power_data])
+    # # print("time: ", time)
     
-    power_df = pd.DataFrame({'t[s]': time, 'power_W': power})
-    power_df.to_csv(folder + '/power.csv')
+    # power_df = pd.DataFrame({'t[s]': time, 'power_W': power})
+    # power_df.to_csv(folder + '/power.csv')
     
-    pylab.plot(time, power, linewidth=2, label='imu')
-    pylab.legend()
-    pylab.show()
-    
-    
+    # pylab.plot(time, power, linewidth=2, label='imu')
+    # pylab.legend()
+    # pylab.show()
+
+    # timings information
+    mode_status = [(x.data.timestamp, x.data.mode) for x in fr.items(['qc_status'])]
+    phase_timings = [(x.data.timestamp, x.data.state.replay_behavior.mode) for x in fr.items(['qc_status'])]
+    start_s = phase_timings[0][0]
+    size_s = phase_timings[-1][0] - start_s
+
+    time = np.array([x[0] - start_s for x in phase_timings])
+    phases = np.array([x[1] for x in phase_timings])
+    replay_mode = np.array([x[1] for x in mode_status])
+    print(phases)
+    exertion_phase =[]
+    flight_phase =[]
+    land_phase =[]
+    replay_start =[]
+    replay_end =[]
+    for i in range(len(time)):
+        if (replay_mode[i]==11 and replay_mode[i-1]==7):
+            replay_start.append(time[i])
+        if (phases[i]==1 and phases[i-1]==0 or phases[i]==1 and phases[i-1]==3):
+            # print(time[i], phases[i])
+            exertion_phase.append(time[i])
+        if (phases[i]==2 and phases[i-1]==1):
+            # print(time[i], phases[i])
+            flight_phase.append(time[i])
+        if (phases[i]==3 and phases[i-1]==2):
+            # print(time[i],phases[i])
+            land_phase.append(time[i])
+        if (phases[i]==4 and phases[i-1]==3):
+            # print(time[i], phases[i])
+            replay_end.append(time[i])
+
+    # print("Replay start: ", replay_start)
+    # print(" Exertion Phases: ", exertion_phase)
+    # print(" Flight phase : ", flight_phase)
+    # print("Land phase: ", land_phase)
+    # print("Replay end : ", replay_end)  
+
+    phase_timings_dict = {
+        'replay_start' : replay_start,
+        'exertion_phase' : exertion_phase,
+        'flight_phase' : flight_phase,
+        'land_phase' : land_phase,
+        'replay_end' : replay_end,
+    }
+    np.savez(folder + '/phase_timings.npz', **phase_timings_dict)
+    # if(mode == 11)
+
     print("done")
 
 if __name__ == '__main__':
